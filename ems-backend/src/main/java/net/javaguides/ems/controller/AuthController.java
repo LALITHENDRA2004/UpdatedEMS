@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
+import net.javaguides.ems.dto.LoginRequest;
+import net.javaguides.ems.dto.LoginResponse;
 import net.javaguides.ems.dto.RegisterRequest;
 import net.javaguides.ems.dto.RegisterResponse;
 import net.javaguides.ems.service.AuthService;
@@ -33,5 +35,15 @@ public class AuthController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(
+            @Valid @RequestBody LoginRequest request) {
+
+        LoginResponse response =
+                authService.login(request);
+
+        return ResponseEntity.ok(response);
     }
 }

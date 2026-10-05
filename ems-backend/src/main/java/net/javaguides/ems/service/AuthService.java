@@ -4,6 +4,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import net.javaguides.ems.dto.LoginRequest;
+import net.javaguides.ems.dto.LoginResponse;
 import net.javaguides.ems.dto.RegisterRequest;
 import net.javaguides.ems.dto.RegisterResponse;
 import net.javaguides.ems.entity.Organization;
@@ -11,6 +13,7 @@ import net.javaguides.ems.entity.Role;
 import net.javaguides.ems.entity.User;
 import net.javaguides.ems.repository.OrganizationRepository;
 import net.javaguides.ems.repository.UserRepository;
+import net.javaguides.ems.security.JwtService;
 
 @Service
 public class AuthService {
@@ -18,15 +21,18 @@ public class AuthService {
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     public AuthService(
             OrganizationRepository organizationRepository,
             UserRepository userRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder, 
+            JwtService jwtService) {
 
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     @Transactional
@@ -80,5 +86,33 @@ public class AuthService {
                 savedUser.getRole().name(),
                 "Organization registered successfully"
         );
+    }
+
+    public LoginResponse login(LoginRequest request) {
+
+        User user = userRepository
+                .findByEmail(request.getEmail())
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Invalid email or password"
+                        )
+                );
+
+        boolean passwordMatches =
+                passwordEncoder.matches(
+                        request.getPassword(),
+                        user.getPasswordHash()
+                );
+
+        if (!passwordMatches) {
+            throw new IllegalArgumentException(
+                    "Invalid email or password"
+            );
+        }
+
+        String token =
+                jwtService.generateToken(user);
+
+        return new LoginResponse(token);
     }
 }
