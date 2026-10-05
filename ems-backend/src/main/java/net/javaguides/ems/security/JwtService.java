@@ -7,6 +7,7 @@ import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -29,7 +30,6 @@ public class JwtService {
     }
 
     public String generateToken(User user) {
-
         Date now = new Date();
         Date expiryDate = new Date(
                 now.getTime() + expiration
@@ -48,5 +48,47 @@ public class JwtService {
                 .signWith(secretKey)
 
                 .compact();
+    }
+
+    public Claims extractAllClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
+
+    public Long extractUserId(String token) {
+        Number userId =
+                extractAllClaims(token).get("userId", Number.class);
+
+        return userId.longValue();
+    }
+
+    public Long extractOrganizationId(String token) {
+        Number organizationId =
+                extractAllClaims(token)
+                        .get("organizationId", Number.class);
+
+        return organizationId.longValue();
+    }
+
+    public String extractRole(String token) {
+        return extractAllClaims(token)
+                .get("role", String.class);
+    }
+
+    public String extractEmail(String token) {
+        return extractAllClaims(token)
+                .getSubject();
+    }
+
+    public boolean isTokenValid(String token) {
+        try {
+            extractAllClaims(token);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }
