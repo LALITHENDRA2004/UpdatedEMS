@@ -1,8 +1,10 @@
 package net.javaguides.ems.security;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -14,72 +16,76 @@ import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
-
-    private final JwtService jwtService;
-
-    public JwtAuthenticationFilter(JwtService jwtService) {
-        this.jwtService = jwtService;
-    }
-
-    @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain)
-            throws ServletException, IOException {
-
-        String authorizationHeader =
-                request.getHeader("Authorization");
-
-        if (authorizationHeader == null ||
-                !authorizationHeader.startsWith("Bearer ")) {
-
-            filterChain.doFilter(request, response);
-            return;
+        private final JwtService jwtService;
+        
+        public JwtAuthenticationFilter(JwtService jwtService) {
+                this.jwtService = jwtService;
         }
+        
+        @Override
+        protected void doFilterInternal(
+                HttpServletRequest request,
+                HttpServletResponse response,
+                FilterChain filterChain)
+                throws ServletException, IOException {
 
-        String token =
-                authorizationHeader.substring(7);
+                String authorizationHeader =
+                        request.getHeader("Authorization");
 
-        try {
-            if (jwtService.isTokenValid(token)) {
-                Long userId =
-                        jwtService.extractUserId(token);
+                if (authorizationHeader == null ||
+                        !authorizationHeader.startsWith("Bearer ")) {
 
-                Long organizationId =
-                        jwtService.extractOrganizationId(token);
+                        filterChain.doFilter(request, response);
+                        return;
+                }
 
-                String email =
-                        jwtService.extractEmail(token);
+                String token =
+                        authorizationHeader.substring(7);
 
-                String role =
-                        jwtService.extractRole(token);
+                try {
+                        if (jwtService.isTokenValid(token)) {
+                        Long userId =
+                                jwtService.extractUserId(token);
 
-                AuthenticatedUser authenticatedUser =
-                        new AuthenticatedUser(
-                                userId,
-                                organizationId,
-                                email,
-                                role
-                        );
+                        Long organizationId =
+                                jwtService.extractOrganizationId(token);
 
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                authenticatedUser,
-                                null,
-                                java.util.Collections.emptyList()
-                        );
+                        String email =
+                                jwtService.extractEmail(token);
 
-                SecurityContextHolder
-                        .getContext()
-                        .setAuthentication(authentication);
-            }
+                        String role =
+                                jwtService.extractRole(token);
 
-        } catch (Exception e) {
+                        AuthenticatedUser authenticatedUser =
+                                new AuthenticatedUser(
+                                        userId,
+                                        organizationId,
+                                        email,
+                                        role
+                                );
 
-            SecurityContextHolder.clearContext();
+                        SimpleGrantedAuthority authority =
+                                new SimpleGrantedAuthority(
+                                        "ROLE_" + role
+                                );
+
+                        UsernamePasswordAuthenticationToken authentication =
+                                new UsernamePasswordAuthenticationToken(
+                                        authenticatedUser,
+                                        null,
+                                        List.of(authority)
+                                );
+
+                        SecurityContextHolder
+                                .getContext()
+                                .setAuthentication(authentication);
+                        }
+
+                } catch (Exception e) {
+
+                        SecurityContextHolder.clearContext();
+                }
+
+                filterChain.doFilter(request, response);
         }
-
-        filterChain.doFilter(request, response);
-    }
 }

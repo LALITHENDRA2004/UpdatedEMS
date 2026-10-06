@@ -33,4 +33,15 @@ public class OrganizationService {
         existingOrganization.setEmail(organization.getEmail()); 
         return organizationRepository.save(existingOrganization);
     }
+
+    public void deleteOrganization(Long id) {
+        Organization organization =
+            organizationRepository.findById(id)
+                    .orElseThrow(() ->
+                            new IllegalArgumentException(
+                                    "Organization not found"
+                            ));
+
+        organizationRepository.delete(organization);
+    }
 }
