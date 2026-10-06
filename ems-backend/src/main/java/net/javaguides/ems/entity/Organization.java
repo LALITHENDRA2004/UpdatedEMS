@@ -1,7 +1,9 @@
 package net.javaguides.ems.entity;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -20,6 +22,7 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -30,6 +33,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor 
 @AllArgsConstructor 
+@Builder
 public class Organization {
     @Id 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -51,6 +55,14 @@ public class Organization {
         orphanRemoval = true
     )
     private Set<User> users = new HashSet<>();
+
+    @OneToMany(
+        mappedBy = "organization",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true
+    )
+    @Builder.Default
+    private List<Department> departments = new ArrayList<>();
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
