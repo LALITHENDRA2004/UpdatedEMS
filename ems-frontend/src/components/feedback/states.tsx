@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { RotateCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { errorMessage } from '@/lib/errors'
-import { fadeUp } from './motion'
+import { ease } from './motion'
 
 interface EmptyStateProps {
   icon: ReactNode
@@ -12,25 +12,29 @@ interface EmptyStateProps {
   action?: ReactNode
 }
 
+/** An empty folder with the icon on its tab — the product's filing motif, drawn in hairlines. */
 export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
   return (
     <motion.div
-      variants={fadeUp}
-      initial="hidden"
-      animate="show"
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease }}
       className="flex flex-col items-center px-6 py-16 text-center"
     >
-      <div className="relative mb-5">
-        {/* Line-drawn "stack of cards" motif behind the icon */}
-        <svg width="88" height="64" viewBox="0 0 88 64" fill="none" aria-hidden className="text-border-strong">
-          <rect x="14.5" y="10.5" width="59" height="43" rx="5.5" stroke="currentColor" strokeDasharray="3 3" />
-          <rect x="8.5" y="16.5" width="71" height="43" rx="5.5" className="fill-surface" stroke="currentColor" />
+      <div className="relative mb-6">
+        <svg width="112" height="76" viewBox="0 0 112 76" fill="none" aria-hidden>
+          <path
+            d="M8.5 14.5a4 4 0 0 1 4-4h26l7 7h54a4 4 0 0 1 4 4v42a4 4 0 0 1-4 4h-87a4 4 0 0 1-4-4z"
+            className="fill-surface-2 stroke-border-strong"
+          />
+          <path d="M8.5 27.5h95" className="stroke-border-strong" strokeDasharray="3 3" />
+          <rect x="12.5" y="6.5" width="30" height="11" rx="3" className="fill-manila-soft stroke-manila" />
         </svg>
-        <div className="absolute inset-x-0 bottom-3 flex justify-center text-muted [&_svg]:size-5">{icon}</div>
+        <div className="absolute left-[18px] top-[7px] flex text-manila-ink [&_svg]:size-[9px]">{icon}</div>
       </div>
-      <h3 className="text-[15px] font-semibold tracking-tight">{title}</h3>
-      <p className="mt-1 max-w-sm text-[13px] text-muted">{description}</p>
-      {action && <div className="mt-5">{action}</div>}
+      <h3 className="font-display text-lg font-semibold">{title}</h3>
+      <p className="mt-1.5 max-w-sm text-[13px] leading-relaxed text-muted">{description}</p>
+      {action && <div className="mt-6">{action}</div>}
     </motion.div>
   )
 }
@@ -38,13 +42,10 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   return (
     <div className="flex flex-col items-center px-6 py-16 text-center">
-      <div className="mb-3 rounded-md border border-danger/25 bg-danger-soft px-2 py-1 font-mono text-xs text-danger">
-        request failed
-      </div>
-      <h3 className="text-[15px] font-semibold tracking-tight">Couldn’t load this</h3>
-      <p className="mt-1 max-w-sm text-[13px] text-muted">{errorMessage(error)}</p>
+      <h3 className="font-display text-lg font-semibold">This page didn’t load</h3>
+      <p className="mt-1.5 max-w-sm text-[13px] leading-relaxed text-muted">{errorMessage(error)}</p>
       {onRetry && (
-        <Button className="mt-5" onClick={onRetry}>
+        <Button className="mt-6" onClick={onRetry}>
           <RotateCw /> Try again
         </Button>
       )}

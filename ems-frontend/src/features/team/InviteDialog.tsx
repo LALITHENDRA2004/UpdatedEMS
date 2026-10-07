@@ -76,7 +76,7 @@ export function InviteDialog({ open, onOpenChange }: { open: boolean; onOpenChan
               Cancel
             </Button>
             <Button variant="primary" type="submit" form="invite-form" loading={invite.isPending}>
-              Create invite link
+              Create invite
             </Button>
           </>
         )
@@ -147,14 +147,33 @@ function InviteLink({ invitation }: { invitation: InvitationResponse }) {
         <span className="font-medium text-foreground">{ROLE_LABEL[invitation.role]}</span>.
       </p>
       <div className="flex items-center gap-2 rounded-md border border-border-strong bg-surface-2 p-1 pl-3">
-        <code className="min-w-0 flex-1 truncate font-mono text-xs text-muted">{link}</code>
-        <Button size="sm" variant={copied ? 'secondary' : 'primary'} onClick={copy} className="w-[84px]">
-          {copied ? <Check /> : <Copy />} {copied ? 'Copied' : 'Copy'}
+        <span className="min-w-0 flex-1 truncate text-xs text-muted">{link}</span>
+        <Button size="sm" variant="primary" onClick={copy} className="w-[96px] overflow-hidden">
+          {/* Success fills the button from the left, then the label swaps. */}
+          <motion.span
+            aria-hidden
+            className="absolute inset-0 origin-left bg-success"
+            initial={false}
+            animate={{ scaleX: copied ? 1 : 0 }}
+            transition={{ duration: 0.35, ease }}
+          />
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.span
+              key={copied ? 'done' : 'copy'}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18 }}
+              className="relative inline-flex items-center gap-1.5"
+            >
+              {copied ? <Check /> : <Copy />} {copied ? 'Copied' : 'Copy link'}
+            </motion.span>
+          </AnimatePresence>
         </Button>
       </div>
       <p className="flex items-center gap-1.5 text-xs text-muted">
         <Clock className="size-3.5" />
-        Expires in {hours > 0 ? `${hours}h ${minutes % 60}m` : `${minutes}m`}. Shown only once — copy it now.
+        Works once and expires in {hours > 0 ? `${hours}h ${minutes % 60}m` : `${minutes}m`}. This link won’t be shown again, so copy it now.
       </p>
     </div>
   )

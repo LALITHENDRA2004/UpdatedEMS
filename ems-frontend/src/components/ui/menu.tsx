@@ -6,7 +6,7 @@ import { inputClass } from './input'
 
 const popoverClass =
   'z-50 min-w-40 overflow-hidden rounded-lg border border-border bg-surface p-1 shadow-pop ' +
-  'data-[state=open]:animate-[pop-in_120ms_ease-out]'
+  'data-[state=open]:animate-[pop-in_140ms_cubic-bezier(0.22,1,0.36,1)]'
 
 const itemClass =
   'relative flex h-8 cursor-default select-none items-center gap-2 rounded-md px-2 text-[13px] text-foreground outline-none ' +
@@ -20,7 +20,12 @@ export const MenuTrigger = DM.Trigger
 export function MenuContent({ className, align = 'end', ...props }: ComponentProps<typeof DM.Content>) {
   return (
     <DM.Portal>
-      <DM.Content align={align} sideOffset={6} className={cn(popoverClass, className)} {...props} />
+      <DM.Content
+        align={align}
+        sideOffset={6}
+        className={cn(popoverClass, 'origin-(--radix-dropdown-menu-content-transform-origin)', className)}
+        {...props}
+      />
     </DM.Portal>
   )
 }
@@ -55,7 +60,7 @@ export function MenuRadioItem({ className, children, ...props }: ComponentProps<
     <DM.RadioItem className={cn(itemClass, 'pr-8', className)} {...props}>
       {children}
       <DM.ItemIndicator className="absolute right-2 flex">
-        <Check className="!text-accent" />
+        <Check className="!text-foreground" />
       </DM.ItemIndicator>
     </DM.RadioItem>
   )
@@ -72,6 +77,7 @@ interface SelectProps<T extends string> {
   className?: string
   'aria-invalid'?: boolean
   'aria-describedby'?: string
+  'aria-label'?: string
 }
 
 export function Select<T extends string>({
@@ -94,7 +100,7 @@ export function Select<T extends string>({
         <S.Content
           position="popper"
           sideOffset={6}
-          className={cn(popoverClass, 'w-(--radix-select-trigger-width)')}
+          className={cn(popoverClass, 'w-(--radix-select-trigger-width) origin-(--radix-select-content-transform-origin)')}
         >
           <S.Viewport>
             {options.map((o) => (
@@ -104,7 +110,7 @@ export function Select<T extends string>({
                   {o.hint && <span className="text-xs text-muted">{o.hint}</span>}
                 </div>
                 <S.ItemIndicator className="absolute right-2 flex">
-                  <Check className="!text-accent" />
+                  <Check className="!text-foreground" />
                 </S.ItemIndicator>
               </S.Item>
             ))}

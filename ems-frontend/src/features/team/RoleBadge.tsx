@@ -3,7 +3,7 @@ import { ROLE_LABEL } from '@/lib/format'
 import type { Role } from '@/types/api'
 
 const TONE = {
-  OWNER: 'accent',
+  OWNER: 'manila',
   ADMIN: 'info',
   HR: 'warning',
   MANAGER: 'neutral',

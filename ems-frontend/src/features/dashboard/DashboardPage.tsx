@@ -3,222 +3,250 @@ import { Link } from 'react-router'
 import { motion } from 'framer-motion'
 import { format } from 'date-fns'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { ArrowUpRight, Plus, UserPlus } from 'lucide-react'
-import { useCan, useSession } from '@/auth/use-auth'
+import { Plus, UserPlus, Users } from 'lucide-react'
+import { useCan } from '@/auth/use-auth'
 import { Button } from '@/components/ui/button'
-import { Avatar, Card, Skeleton } from '@/components/ui/misc'
+import { Skeleton } from '@/components/ui/misc'
 import { PageBody, PageHeader } from '@/components/layout/PageHeader'
-import { ErrorState } from '@/components/feedback/states'
-import { fadeUp, stagger } from '@/components/feedback/motion'
-import { useEmployees } from '@/features/employees/api'
+import { EmptyState, ErrorState } from '@/components/feedback/states'
+import { ease, spring, useCountUp } from '@/components/feedback/motion'
+import { useAllEmployees } from '@/features/employees/api'
 import { useDepartments } from '@/features/departments/api'
 import { useUsers } from '@/features/team/api'
 import { useMyOrganization } from '@/features/settings/api'
-import { formatCurrency, formatCurrencyCompact, formatDate } from '@/lib/format'
-import { cn, initials } from '@/lib/utils'
-import { hiresByMonth, recentHires, salaryBands, type MonthBucket, type SalaryBand } from './metrics'
+import { formatCurrencyCompact } from '@/lib/format'
+import { cn } from '@/lib/utils'
+import { hiresByMonth, salaryBands, type MonthBucket, type SalaryBand } from './metrics'
+import { RosterWall } from './RosterWall'
 
-function greeting() {
-  const h = new Date().getHours()
-  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
-}
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 
 export function DashboardPage() {
-  const session = useSession()
   const org = useMyOrganization()
   const canSeeUsers = useCan('user:list')
   const canCreate = useCan('employee:create')
   const canInvite = useCan('invitation:create')
-  const employees = useEmployees()
+  const employees = useAllEmployees()
   const departments = useDepartments()
   const users = useUsers(canSeeUsers)
+  const thisMonth = format(new Date(), 'yyyy-MM')
 
-  const data = employees.data
+  const data = employees.data?.employees
   const stats = useMemo(() => {
-    if (!data) return null
+    if (!data || !employees.data) return null
     const payroll = data.reduce((s, e) => s + e.salary, 0)
-    const active = data.filter((e) => e.status === 'ACTIVE').length
-    const thisMonth = format(new Date(), 'yyyy-MM')
     return {
-      headcount: data.length,
-      active,
+      headcount: employees.data.total,
+      truncated: employees.data.truncated,
+      active: data.filter((e) => e.status === 'ACTIVE').length,
+      onLeave: data.filter((e) => e.status === 'ON_LEAVE').length,
       payroll,
       avg: data.length ? payroll / data.length : 0,
       joinedThisMonth: data.filter((e) => e.dateOfJoining.startsWith(thisMonth)).length,
       months: hiresByMonth(data),
       bands: salaryBands(data),
-      recent: recentHires(data),
     }
-  }, [data])
+  }, [data, employees.data, thisMonth])
+
+  const actions = (
+    <>
+      {canInvite && (
+        <Button asChild>
+          <Link to="/team?invite=1" viewTransition>
+            <UserPlus /> Invite member
+          </Link>
+        </Button>
+      )}
+      {canCreate && (
+        <Button asChild variant="primary">
+          <Link to="/employees?new=1" viewTransition>
+            <Plus /> Add employee
+          </Link>
+        </Button>
+      )}
+    </>
+  )
 
   return (
     <>
-      <PageHeader
-        eyebrow={format(new Date(), 'EEEE, d MMMM')}
-        title={`${greeting()}${session ? `, ${session.email.split('@')[0]}` : ''}`}
-        description={org.data ? `Here’s how ${org.data.name} looks today.` : ' '}
-        actions={
-          <>
-            {canInvite && (
-              <Button asChild>
-                <Link to="/team?invite=1">
-                  <UserPlus /> Invite
-                </Link>
-              </Button>
-            )}
-            {canCreate && (
-              <Button asChild variant="primary">
-                <Link to="/employees?new=1">
-                  <Plus /> New employee
-                </Link>
-              </Button>
-            )}
-          </>
-        }
-      />
-      <PageBody>
+      <PageHeader title={org.data?.name ?? <Skeleton className="h-8 w-56" />} actions={actions} />
+      <PageBody className="md:py-8">
         {employees.isError ? (
           <ErrorState error={employees.error} onRetry={() => employees.refetch()} />
-        ) : (
-          <motion.div variants={stagger(0.05)} initial="hidden" animate="show" className="flex flex-col gap-4">
-            {/* KPI strip — one bordered strip with hairline dividers, not four floating cards */}
-            <motion.div variants={fadeUp}>
-              <Card className="grid grid-cols-2 gap-px overflow-hidden bg-border lg:grid-cols-4">
-                <Stat label="Headcount" value={stats?.headcount} sub={stats && `${stats.joinedThisMonth} joined this month`} />
-                <Stat
-                  label="Active"
-                  value={stats?.active}
-                  sub={stats && <Meter value={stats.active} max={stats.headcount} />}
-                />
-                <Stat label="Departments" value={departments.data?.length} sub="Across the organization" />
-                {canSeeUsers ? (
-                  <Stat label="Workspace members" value={users.data?.length} sub="People who can sign in" />
-                ) : (
-                  <Stat label="Average salary" value={stats && formatCurrencyCompact(stats.avg)} sub="Per year" />
-                )}
-              </Card>
-            </motion.div>
-
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-              <motion.div variants={fadeUp}>
-                <ChartCard
-                  title="Hires per month"
-                  subtitle="Employees by joining date, last 12 months"
-                  table={stats && <HiresTable months={stats.months} />}
-                >
-                  {stats ? <HiresChart months={stats.months} /> : <Skeleton className="h-56" />}
-                </ChartCard>
-              </motion.div>
-              <motion.div variants={fadeUp}>
-                <ChartCard
-                  title="Annual payroll"
-                  subtitle={stats ? `${formatCurrency(stats.payroll)} total` : ' '}
-                  table={stats && <BandsTable bands={stats.bands} />}
-                >
-                  {stats ? <SalaryBands bands={stats.bands} /> : <Skeleton className="h-56" />}
-                </ChartCard>
-              </motion.div>
-            </div>
-
-            <motion.div variants={fadeUp}>
-              <Card>
-                <div className="flex items-center justify-between border-b border-border px-5 py-3">
-                  <h2 className="text-[13px] font-semibold">Recent hires</h2>
-                  <Link to="/employees" className="inline-flex items-center gap-1 text-xs text-muted hover:text-foreground">
-                    All employees <ArrowUpRight className="size-3" />
+        ) : !stats ? (
+          <div className="space-y-5">
+            <Skeleton className="h-9 w-full max-w-xl" />
+            <Skeleton className="h-9 w-2/3 max-w-md" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        ) : stats.headcount === 0 ? (
+          <EmptyState
+            icon={<Users />}
+            title="Your roster is empty"
+            description="Add your first employee to see headcount, hiring and payroll here."
+            action={
+              canCreate && (
+                <Button asChild variant="primary">
+                  <Link to="/employees?new=1" viewTransition>
+                    <Plus /> Add employee
                   </Link>
-                </div>
-                {!stats ? (
-                  <div className="space-y-3 p-5">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <Skeleton key={i} className="h-8" />
-                    ))}
-                  </div>
-                ) : stats.recent.length === 0 ? (
-                  <p className="px-5 py-8 text-center text-[13px] text-muted">No one has been added yet.</p>
-                ) : (
-                  <ul className="divide-y divide-border">
-                    {stats.recent.map((e) => (
-                      <li key={e.id}>
-                        <Link
-                          to={`/employees/${e.id}`}
-                          className="flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-surface-2/60"
-                        >
-                          <Avatar name={initials(e.firstName, e.lastName)} seed={e.id} />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-[13px] font-medium">
-                              {e.firstName} {e.lastName}
-                            </p>
-                            <p className="truncate text-xs text-muted">{e.jobTitle}</p>
-                          </div>
-                          <span className="num shrink-0 text-xs text-muted">{formatDate(e.dateOfJoining)}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Card>
-            </motion.div>
-          </motion.div>
+                </Button>
+              )
+            }
+          />
+        ) : (
+          <div className="flex flex-col gap-8">
+            <section>
+              <Summary
+                headcount={stats.headcount}
+                departments={departments.data?.length}
+                joined={stats.joinedThisMonth}
+                onLeave={stats.onLeave}
+              />
+              <div className="mt-6">
+                <RosterWall employees={data!} thisMonth={thisMonth} total={stats.headcount} />
+              </div>
+              {stats.truncated && (
+                <p className="mt-3 text-xs text-muted">
+                  Figures below use the first {data!.length.toLocaleString('en-IN')} people.
+                </p>
+              )}
+            </section>
+
+            <dl className="grid grid-cols-2 gap-y-5 border-y border-border py-5 lg:grid-cols-4 lg:divide-x lg:divide-border">
+              <Figure label="Active">
+                <ActiveShare active={stats.active} total={stats.headcount} />
+              </Figure>
+              <Figure label="Annual payroll">{formatCurrencyCompact(stats.payroll)}</Figure>
+              <Figure label="Average salary">{formatCurrencyCompact(stats.avg)}</Figure>
+              {canSeeUsers ? (
+                <Figure label="Members who can sign in">
+                  {users.data ? <CountUp value={users.data.length} /> : <Skeleton className="h-6 w-8" />}
+                </Figure>
+              ) : (
+                <Figure label="Departments">{departments.data?.length ?? '–'}</Figure>
+              )}
+            </dl>
+
+            <div className="grid overflow-hidden rounded-lg border border-border bg-surface lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:divide-x lg:divide-border">
+              <ChartSection
+                title="Hires per month"
+                subtitle="By joining date, last 12 months"
+                table={<HiresTable months={stats.months} />}
+              >
+                <HiresChart months={stats.months} />
+              </ChartSection>
+              <ChartSection
+                title="Salary bands"
+                subtitle="People per annual salary range"
+                table={<BandsTable bands={stats.bands} />}
+                className="border-t border-border lg:border-t-0"
+              >
+                <SalaryBands bands={stats.bands} />
+              </ChartSection>
+            </div>
+          </div>
         )}
       </PageBody>
     </>
   )
 }
 
-/* ---------- pieces ---------- */
+/* ---------- summary ---------- */
 
-function Stat({ label, value, sub }: { label: string; value: ReactNode | undefined; sub?: ReactNode }) {
+function Summary({
+  headcount,
+  departments,
+  joined,
+  onLeave,
+}: {
+  headcount: number
+  departments?: number
+  joined: number
+  onLeave: number
+}) {
+  const count = useCountUp(headcount, { fromZero: true })
+  const second = [
+    joined > 0 ? `${plural(joined, 'person', 'people')} joined this month` : 'Nobody new this month',
+    onLeave > 0 ? `${onLeave} on leave` : null,
+  ]
+    .filter(Boolean)
+    .join(', ')
   return (
-    <div className="bg-surface px-5 py-4">
-      <p className="text-xs font-medium text-muted">{label}</p>
-      {value === undefined || value === null ? (
-        <Skeleton className="mt-2 h-7 w-16" />
-      ) : (
-        <p className="mt-1 text-[26px] font-semibold leading-tight tracking-[-0.02em]">{value}</p>
-      )}
-      <div className="mt-1 min-h-4 text-xs text-muted">{sub}</div>
+    <motion.p
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease }}
+      className="max-w-[34ch] font-display text-[26px] font-medium leading-[1.2] text-foreground sm:text-[32px]"
+    >
+      <span className="num font-semibold">{count}</span> {headcount === 1 ? 'person' : 'people'}
+      {departments !== undefined && departments > 0 && <> across {plural(departments, 'department')}</>}.{' '}
+      <span className="text-muted">{second}.</span>
+    </motion.p>
+  )
+}
+
+function Figure({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="px-0 lg:px-6 lg:first:pl-0">
+      <dt className="text-xs text-muted">{label}</dt>
+      <dd className="mt-1 font-display text-[22px] font-semibold leading-tight">{children}</dd>
     </div>
   )
 }
 
-function Meter({ value, max }: { value: number; max: number }) {
-  const pct = max ? Math.round((value / max) * 100) : 0
+function CountUp({ value }: { value: number }) {
+  return <span className="num">{useCountUp(value, { fromZero: true })}</span>
+}
+
+function ActiveShare({ active, total }: { active: number; total: number }) {
+  const pct = total ? Math.round((active / total) * 100) : 0
   return (
-    <span className="flex items-center gap-2">
-      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-chart-track" role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Active share">
+    <span className="flex items-center gap-3">
+      <span className="num">{useCountUp(pct, { fromZero: true })}%</span>
+      <span
+        className="h-1.5 w-20 overflow-hidden rounded-full bg-chart-track"
+        role="meter"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Share of employees who are active"
+      >
         <motion.span
           className="block h-full rounded-full bg-chart-1"
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.8, ease, delay: 0.2 }}
         />
       </span>
-      <span className="num">{pct}%</span>
     </span>
   )
 }
 
-function ChartCard({
+/* ---------- charts ---------- */
+
+function ChartSection({
   title,
   subtitle,
   table,
   children,
+  className,
 }: {
   title: string
-  subtitle: ReactNode
+  subtitle: string
   table: ReactNode
   children: ReactNode
+  className?: string
 }) {
   const [view, setView] = useState<'chart' | 'table'>('chart')
   return (
-    <Card className="h-full">
-      <div className="flex items-start justify-between gap-3 px-5 pt-4">
+    <section className={cn('p-5', className)}>
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-[13px] font-semibold">{title}</h2>
+          <h2 className="font-display text-[16px] font-semibold">{title}</h2>
           <p className="mt-0.5 text-xs text-muted">{subtitle}</p>
         </div>
-        <div className="flex rounded-md bg-surface-2 p-0.5 text-xs ring-1 ring-inset ring-border" role="tablist">
+        <div className="relative flex rounded-md bg-surface-2 p-0.5 text-xs ring-1 ring-inset ring-border" role="tablist">
           {(['chart', 'table'] as const).map((v) => (
             <button
               key={v}
@@ -226,17 +254,32 @@ function ChartCard({
               aria-selected={view === v}
               onClick={() => setView(v)}
               className={cn(
-                'rounded px-2 py-0.5 capitalize transition-colors',
-                view === v ? 'bg-surface text-foreground shadow-[0_1px_1px_oklch(0.2_0.01_70/0.06)]' : 'text-muted hover:text-foreground',
+                'relative rounded px-2 py-0.5 capitalize transition-colors',
+                view === v ? 'text-foreground' : 'text-muted hover:text-foreground',
               )}
             >
-              {v}
+              {view === v && (
+                <motion.span
+                  layoutId={`${title}-view`}
+                  className="absolute inset-0 rounded bg-surface shadow-[0_1px_2px_rgb(28_39_51/0.1)]"
+                  transition={spring.indicator}
+                />
+              )}
+              <span className="relative">{v}</span>
             </button>
           ))}
         </div>
       </div>
-      <div className="px-5 pb-4 pt-4">{view === 'chart' ? children : table}</div>
-    </Card>
+      <motion.div
+        key={view}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+        className="mt-4"
+      >
+        {view === 'chart' ? children : table}
+      </motion.div>
+    </section>
   )
 }
 
@@ -259,13 +302,13 @@ function HiresChart({ months }: { months: MonthBucket[] }) {
                 <div className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs shadow-pop">
                   <p className="text-muted">{format(new Date(`${p.key}-01T00:00:00`), 'MMMM yyyy')}</p>
                   <p className="mt-0.5 flex items-center gap-1.5 font-medium">
-                    <span className="size-2 rounded-[2px] bg-chart-1" /> {p.hires} {p.hires === 1 ? 'hire' : 'hires'}
+                    <span className="size-2 rounded-[2px] bg-chart-1" /> {plural(p.hires, 'hire')}
                   </p>
                 </div>
               )
             }}
           />
-          <Bar dataKey="hires" fill="var(--chart-1)" radius={[4, 4, 0, 0]} maxBarSize={24} animationDuration={600} />
+          <Bar dataKey="hires" fill="var(--chart-1)" radius={[4, 4, 0, 0]} maxBarSize={24} animationDuration={700} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -275,17 +318,16 @@ function HiresChart({ months }: { months: MonthBucket[] }) {
 function SalaryBands({ bands }: { bands: SalaryBand[] }) {
   const max = Math.max(1, ...bands.map((b) => b.count))
   return (
-    <ul className="flex h-56 flex-col justify-center gap-3.5" aria-label="Employees by salary band">
+    <ul className="flex h-56 flex-col justify-center gap-4" aria-label="Employees by salary band">
       {bands.map((b, i) => (
-        <li key={b.label} className="group grid grid-cols-[96px_minmax(0,1fr)] items-center gap-3 text-xs">
+        <li key={b.label} className="grid grid-cols-[104px_minmax(0,1fr)] items-center gap-3 text-xs">
           <span className="truncate text-muted">{b.label}</span>
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-2" title={`${b.label}: ${plural(b.count, 'person', 'people')}`}>
             <motion.span
-              className="h-3 min-w-[3px] rounded-r-[4px] bg-chart-1 transition-opacity group-hover:opacity-80"
+              className="h-3 min-w-[3px] rounded-r-[4px] bg-chart-1"
               initial={{ width: 0 }}
-              animate={{ width: `${(b.count / max) * 85}%` }}
-              transition={{ duration: 0.6, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-              title={`${b.label}: ${b.count}`}
+              animate={{ width: `${(b.count / max) * 82}%` }}
+              transition={{ duration: 0.7, delay: 0.1 + i * 0.05, ease }}
             />
             <span className="num shrink-0 text-foreground">{b.count}</span>
           </span>
@@ -305,7 +347,7 @@ function HiresTable({ months }: { months: MonthBucket[] }) {
 }
 
 function BandsTable({ bands }: { bands: SalaryBand[] }) {
-  return <SimpleTable head={['Salary band', 'Employees']} rows={bands.map((b) => [b.label, b.count])} />
+  return <SimpleTable head={['Salary band', 'People']} rows={bands.map((b) => [b.label, b.count])} />
 }
 
 function SimpleTable({ head, rows }: { head: [string, string]; rows: Array<[string, number]> }) {

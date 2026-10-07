@@ -8,7 +8,8 @@ import { useSession } from '@/auth/use-auth'
 import { authStore } from '@/auth/auth-store'
 import { can } from '@/auth/permissions'
 import { useTheme } from '@/app/theme'
-import { useEmployees } from '@/features/employees/api'
+import { useEmployeePage } from '@/features/employees/api'
+import { useDebouncedValue } from '@/lib/use-debounced'
 import { Avatar } from '@/components/ui/misc'
 import { ease } from '@/components/feedback/motion'
 import { initials } from '@/lib/utils'
@@ -16,14 +17,17 @@ import { NAV } from './nav'
 
 const itemClass =
   'flex h-9 cursor-default select-none items-center gap-2.5 rounded-md px-2.5 text-[13px] text-foreground ' +
-  'data-[selected=true]:bg-surface-2 [&_svg]:size-4 [&_svg]:text-muted'
+  'data-[selected=true]:bg-manila-soft data-[selected=true]:text-manila-ink [&_svg]:size-4 [&_svg]:text-muted data-[selected=true]:[&_svg]:text-manila-ink'
 
 export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const navigate = useNavigate()
   const session = useSession()
   const { toggle } = useTheme()
-  const employees = useEmployees()
   const [query, setQuery] = useState('')
+  // People are searched on the server (name only), debounced, and only once something is typed.
+  const term = useDebouncedValue(query.trim(), 250)
+  const people = useEmployeePage({ name: term, size: 8 }, { enabled: open && term.length > 0 })
+  const searching = query.trim().length > 0 && (term !== query.trim() || people.isFetching)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -49,7 +53,7 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
           <D.Portal forceMount>
             <D.Overlay asChild forceMount>
               <motion.div
-                className="fixed inset-0 z-50 bg-[oklch(0.2_0.01_70/0.3)]"
+                className="fixed inset-0 z-50 bg-[rgb(17_24_33/0.32)]"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -78,7 +82,7 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
                     <Command.Input
                       value={query}
                       onValueChange={setQuery}
-                      placeholder="Search people or jump to…"
+                      placeholder="Find a person or go to a page"
                       className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-subtle"
                     />
                   </div>
@@ -87,12 +91,12 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
 
                     <Command.Group heading="Actions">
                       {can(session?.role, 'employee:create') && (
-                        <Command.Item className={itemClass} onSelect={() => run(() => navigate('/employees?new=1'))}>
+                        <Command.Item className={itemClass} onSelect={() => run(() => navigate('/employees?new=1', { viewTransition: true }))}>
                           <Plus /> New employee
                         </Command.Item>
                       )}
                       {can(session?.role, 'invitation:create') && (
-                        <Command.Item className={itemClass} onSelect={() => run(() => navigate('/team?invite=1'))}>
+                        <Command.Item className={itemClass} onSelect={() => run(() => navigate('/team?invite=1', { viewTransition: true }))}>
                           <UserPlus /> Invite a member
                         </Command.Item>
                       )}
@@ -103,23 +107,29 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
 
                     <Command.Group heading="Go to">
                       {NAV.filter((n) => !n.requires || can(session?.role, n.requires)).map((n) => (
-                        <Command.Item key={n.to} className={itemClass} onSelect={() => run(() => navigate(n.to))}>
+                        <Command.Item key={n.to} className={itemClass} onSelect={() => run(() => navigate(n.to, { viewTransition: true }))}>
                           <n.icon /> {n.label}
                         </Command.Item>
                       ))}
-                      <Command.Item className={itemClass} onSelect={() => run(() => navigate('/settings/profile'))}>
+                      <Command.Item className={itemClass} onSelect={() => run(() => navigate('/settings/profile', { viewTransition: true }))}>
                         <UserRound /> Your profile
                       </Command.Item>
                     </Command.Group>
 
-                    {query.length > 0 && employees.data && employees.data.length > 0 && (
-                      <Command.Group heading="People">
-                        {employees.data.slice(0, 200).map((e) => (
+                    {searching && !people.data?.content.length && (
+                      <Command.Loading>
+                        <p className="px-2.5 py-2 text-[13px] text-muted">Searching people…</p>
+                      </Command.Loading>
+                    )}
+                    {term.length > 0 && people.data && people.data.content.length > 0 && (
+                      <Command.Group heading={`People${people.data.totalElements > 8 ? `, top 8 of ${people.data.totalElements}` : ''}`} forceMount>
+                        {people.data.content.map((e) => (
                           <Command.Item
                             key={e.id}
+                            forceMount
                             value={`${e.firstName} ${e.lastName} ${e.email} ${e.jobTitle} #${e.id}`}
                             className={itemClass}
-                            onSelect={() => run(() => navigate(`/employees/${e.id}`))}
+                            onSelect={() => run(() => navigate(`/employees/${e.id}`, { viewTransition: true }))}
                           >
                             <Avatar name={initials(e.firstName, e.lastName)} seed={e.id} className="size-5 text-[9px]" />
                             <span className="truncate">

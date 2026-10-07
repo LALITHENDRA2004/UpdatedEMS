@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/field'
@@ -38,6 +38,7 @@ export function RegisterPage() {
     defaultValues: { organizationName: '', organizationEmail: '', username: '', ownerEmail: '', password: '' },
   })
   const { errors } = form.formState
+  const [orgName, username] = useWatch({ control: form.control, name: ['organizationName', 'username'] })
 
   const next = async () => {
     if (await form.trigger(STEP_FIELDS[0])) setStep(1)
@@ -64,16 +65,17 @@ export function RegisterPage() {
 
   return (
     <AuthLayout
+      badge={{ organization: orgName, name: username, role: 'Owner' }}
       title={step === 0 ? 'Create your workspace' : 'Set up your account'}
       subtitle={
         step === 0
-          ? 'Start with your organization. You can invite your team afterwards.'
-          : 'You’ll be the owner of this workspace.'
+          ? 'Start with your company’s details. You’ll invite your team after this.'
+          : 'This account owns the workspace. You’ll sign in with this email.'
       }
       footer={
         <>
           Already have an account?{' '}
-          <Link to="/login" className="font-medium text-foreground underline-offset-4 hover:underline">
+          <Link to="/login" viewTransition className="font-medium text-foreground underline decoration-border-strong underline-offset-4 hover:decoration-foreground">
             Sign in
           </Link>
         </>
@@ -99,7 +101,7 @@ export function RegisterPage() {
                   <Input type="email" placeholder="hello@acme.com" {...form.register('organizationEmail')} />
                 </Field>
                 <Button type="button" variant="primary" size="lg" className="mt-2" onClick={next}>
-                  Continue <ArrowRight />
+                  Continue
                 </Button>
               </>
             ) : (
@@ -138,8 +140,12 @@ function Steps({ step }: { step: 0 | 1 }) {
           {i > 0 && <span className="h-px w-6 bg-border-strong" />}
           <span
             className={cn(
-              'grid size-5 place-items-center rounded-full border font-mono text-[10px] transition-colors',
-              i <= step ? 'border-accent bg-accent text-accent-fg' : 'border-border-strong text-subtle',
+              'num grid size-5 place-items-center rounded-full border text-[11px] font-semibold transition-colors duration-300',
+              i < step
+                ? 'border-manila bg-manila text-[#3d2f08]'
+                : i === step
+                  ? 'border-foreground bg-foreground text-surface'
+                  : 'border-border-strong text-subtle',
             )}
           >
             {i + 1}

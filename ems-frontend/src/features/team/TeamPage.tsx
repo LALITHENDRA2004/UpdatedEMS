@@ -1,6 +1,8 @@
 import { useDeferredValue, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { ChevronDown, Search, UserPlus, UsersRound } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { ease } from '@/components/feedback/motion'
 import { toast } from 'sonner'
 import { useCan, useSession } from '@/auth/use-auth'
 import { assignableRoles, canChangeRoleOf } from '@/auth/permissions'
@@ -58,8 +60,8 @@ export function TeamPage() {
               <p className="flex items-center gap-2 truncate font-medium">
                 {u.username}
                 {u.id === session?.userId && (
-                  <span className="rounded-sm bg-surface-2 px-1 py-px text-[10px] font-medium uppercase tracking-wide text-muted ring-1 ring-inset ring-border">
-                    You
+                  <span className="rounded-full bg-surface-2 px-1.5 py-px text-[11px] font-medium text-muted ring-1 ring-inset ring-border">
+                    you
                   </span>
                 )}
               </p>
@@ -87,8 +89,20 @@ export function TeamPage() {
           }
           return (
             <Menu>
-              <MenuTrigger className="-ml-1 inline-flex items-center gap-1 rounded-md px-1 py-0.5 outline-none hover:bg-surface-2 focus-visible:ring-[3px] focus-visible:ring-ring">
-                <RoleBadge role={u.role} />
+              <MenuTrigger className="-ml-1 inline-flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-surface-2">
+                {/* Cross-morph confirms the (optimistic) change in place. */}
+                <AnimatePresence mode="popLayout" initial={false}>
+                  <motion.span
+                    key={u.role}
+                    initial={{ opacity: 0, y: 6, filter: 'blur(2px)' }}
+                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                    exit={{ opacity: 0, y: -6, filter: 'blur(2px)' }}
+                    transition={{ duration: 0.2, ease }}
+                    className="inline-flex"
+                  >
+                    <RoleBadge role={u.role} />
+                  </motion.span>
+                </AnimatePresence>
                 <ChevronDown className="size-3 text-subtle" />
               </MenuTrigger>
               <MenuContent align="start" className="w-72">
@@ -126,7 +140,7 @@ export function TeamPage() {
         actions={
           canInvite && (
             <Button variant="primary" onClick={() => setInviteOpen(true)}>
-              <UserPlus /> Invite
+              <UserPlus /> Invite member
             </Button>
           )
         }
@@ -172,11 +186,12 @@ function RoleSummary({ users }: { users?: User[] }) {
   if (!users) return <span />
   const counts = users.reduce<Partial<Record<Role, number>>>((acc, u) => ((acc[u.role] = (acc[u.role] ?? 0) + 1), acc), {})
   return (
-    <p className="hidden truncate text-xs text-muted sm:block">
+    <p className="hidden truncate text-[13px] text-muted sm:block">
+      {users.length} {users.length === 1 ? 'member' : 'members'}:{' '}
       {(Object.keys(ROLE_LABEL) as Role[])
         .filter((r) => counts[r])
-        .map((r) => `${counts[r]} ${ROLE_LABEL[r]}${counts[r]! > 1 && r !== 'HR' ? 's' : ''}`)
-        .join(' · ')}
+        .map((r) => `${counts[r]} ${r === 'HR' ? 'HR' : ROLE_LABEL[r].toLowerCase()}${counts[r]! > 1 && r !== 'HR' ? 's' : ''}`)
+        .join(', ')}
     </p>
   )
 }

@@ -18,7 +18,11 @@ export function useSaveDepartment() {
       id
         ? (await api.put<Department>(`/departments/${id}`, { name })).data
         : (await api.post<Department>('/departments', { name })).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: departmentKeys.all }),
+    onSuccess: () => {
+      // Employee rows carry the department name, so a rename must refresh them too.
+      qc.invalidateQueries({ queryKey: ['employees'] })
+      return qc.invalidateQueries({ queryKey: departmentKeys.all })
+    },
   })
 }
 
@@ -29,6 +33,9 @@ export function useDeleteDepartment() {
       await api.delete(`/departments/${id}`)
       return id
     },
-    onSuccess: (id) => qc.setQueryData<Department[]>(departmentKeys.all, (old) => old?.filter((d) => d.id !== id)),
+    onSuccess: (id) => {
+      qc.setQueryData<Department[]>(departmentKeys.all, (old) => old?.filter((d) => d.id !== id))
+      qc.invalidateQueries({ queryKey: ['employees'] })
+    },
   })
 }

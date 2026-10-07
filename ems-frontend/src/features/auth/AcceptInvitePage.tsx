@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { motion } from 'framer-motion'
-import { ArrowRight, CircleCheck, Link2Off } from 'lucide-react'
+import { CircleCheck, Link2Off } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -25,6 +25,7 @@ export function AcceptInvitePage() {
     defaultValues: { username: '', password: '', confirm: '' },
   })
   const { errors } = form.formState
+  const username = useWatch({ control: form.control, name: 'username' })
 
   const onSubmit = form.handleSubmit(({ username, password }) =>
     accept.mutateAsync({ token, username, password }).then(
@@ -62,13 +63,13 @@ export function AcceptInvitePage() {
     return (
       <AuthLayout title="You’re in" subtitle="Your account is ready. Sign in with the email you were invited at.">
         <motion.div variants={fadeUp} initial="hidden" animate="show" className="flex flex-col gap-4">
-          <div className="flex items-center gap-3 rounded-lg border border-accent/25 bg-accent-soft p-4 text-[13px] text-accent-soft-fg">
+          <div className="flex items-center gap-3 rounded-lg border border-success/25 bg-success-soft p-4 text-[13px] text-success">
             <CircleCheck className="size-4 shrink-0" />
             Invitation accepted.
           </div>
           <Button asChild variant="primary" size="lg">
             <Link to="/login">
-              Continue to sign in <ArrowRight />
+              Go to sign in
             </Link>
           </Button>
         </motion.div>
@@ -77,7 +78,11 @@ export function AcceptInvitePage() {
   }
 
   return (
-    <AuthLayout title="Join your team" subtitle="You’ve been invited to a workspace. Choose how you’ll sign in.">
+    <AuthLayout
+      title="Join your team"
+      subtitle="You’ve been invited to a workspace. Pick a username and password to finish."
+      badge={{ name: username, role: 'Invited member' }}
+    >
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
         <Field label="Username" error={errors.username?.message}>
           <Input autoFocus autoComplete="username" placeholder="jane.doe" {...form.register('username')} />

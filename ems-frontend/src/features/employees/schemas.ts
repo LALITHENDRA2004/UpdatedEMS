@@ -14,7 +14,11 @@ export const employeeSchema = z.object({
     .string()
     .min(1, 'Pick a joining date')
     .refine((d) => d <= toIsoDate(new Date()), 'Joining date can’t be in the future'),
+  /** Select value: a department id, or NO_DEPARTMENT. */
+  departmentId: z.string(),
 })
+
+export const NO_DEPARTMENT = 'none'
 
 export type EmployeeFormValues = z.infer<typeof employeeSchema>
 
@@ -26,6 +30,7 @@ export const emptyEmployee = (): EmployeeFormValues => ({
   jobTitle: '',
   salary: Number.NaN,
   dateOfJoining: toIsoDate(new Date()),
+  departmentId: NO_DEPARTMENT,
 })
 
 export const toFormValues = (e: Employee): EmployeeFormValues => ({
@@ -36,6 +41,12 @@ export const toFormValues = (e: Employee): EmployeeFormValues => ({
   jobTitle: e.jobTitle,
   salary: e.salary,
   dateOfJoining: e.dateOfJoining,
+  departmentId: e.departmentId != null ? String(e.departmentId) : NO_DEPARTMENT,
 })
 
-export const toRequest = (v: EmployeeFormValues): EmployeeRequest => ({ ...v, phone: v.phone || null })
+/** Always sends departmentId: PUT is a full replace, so leaving it out would clear the department. */
+export const toRequest = (v: EmployeeFormValues): EmployeeRequest => ({
+  ...v,
+  phone: v.phone || null,
+  departmentId: v.departmentId === NO_DEPARTMENT ? null : Number(v.departmentId),
+})

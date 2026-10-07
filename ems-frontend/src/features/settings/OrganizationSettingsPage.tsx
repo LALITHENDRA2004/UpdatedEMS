@@ -37,10 +37,10 @@ export function OrganizationSettingsPage() {
       ) : (
         <>
           <ProfileForm org={org.data} />
-          <SettingsSection title="Workspace" description="Reference details for support and integrations.">
+          <SettingsSection title="Workspace" description="Details to quote if you contact support.">
             <dl className="grid gap-4 text-[13px] sm:grid-cols-3">
               <Info label="Workspace ID">
-                <span className="font-mono">{org.data.id}</span>
+                <span className="num">{org.data.id}</span>
               </Info>
               <Info label="Created">{formatDate(org.data.createdAt)}</Info>
               <Info label="Departments">{org.data.departments.length}</Info>

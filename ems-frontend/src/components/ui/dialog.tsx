@@ -3,7 +3,7 @@ import { Dialog as D } from 'radix-ui'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ease } from '@/components/feedback/motion'
+import { spring } from '@/components/feedback/motion'
 
 interface DialogProps {
   open: boolean
@@ -24,7 +24,7 @@ export function Dialog({ open, onOpenChange, title, description, children, foote
           <D.Portal forceMount>
             <D.Overlay asChild forceMount>
               <motion.div
-                className="fixed inset-0 z-50 bg-[oklch(0.2_0.01_70/0.32)] backdrop-blur-[1px]"
+                className="fixed inset-0 z-50 bg-[rgb(17_24_33/0.36)] backdrop-blur-[2px]"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -38,14 +38,13 @@ export function Dialog({ open, onOpenChange, title, description, children, foote
                     'pointer-events-auto w-full max-w-md rounded-xl border border-border bg-surface shadow-pop outline-none',
                     className,
                   )}
-                  initial={{ opacity: 0, scale: 0.97, y: 6 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.98, y: 4 }}
-                  transition={{ duration: 0.18, ease }}
+                  initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0, transition: spring.dialog }}
+                  exit={{ opacity: 0, scale: 0.98, y: 6, transition: { duration: 0.12 } }}
                 >
                   <div className="flex items-start justify-between gap-4 px-5 pt-5">
                     <div className="space-y-1">
-                      <D.Title className="text-[15px] font-semibold tracking-tight">{title}</D.Title>
+                      <D.Title className="font-display text-[17px] font-semibold">{title}</D.Title>
                       {description ? (
                         <D.Description className="text-[13px] text-muted">{description}</D.Description>
                       ) : (
@@ -86,7 +85,7 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
           <D.Portal forceMount>
             <D.Overlay asChild forceMount>
               <motion.div
-                className="fixed inset-0 z-50 bg-[oklch(0.2_0.01_70/0.28)]"
+                className="fixed inset-0 z-50 bg-[rgb(17_24_33/0.3)]"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -102,11 +101,11 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
                 initial={{ x: '100%' }}
                 animate={{ x: 0 }}
                 exit={{ x: '100%' }}
-                transition={{ type: 'spring', stiffness: 420, damping: 40 }}
+                transition={spring.sheet}
               >
                 <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
                   <div className="space-y-0.5">
-                    <D.Title className="text-[15px] font-semibold tracking-tight">{title}</D.Title>
+                    <D.Title className="font-display text-[17px] font-semibold">{title}</D.Title>
                     {description ? (
                       <D.Description className="text-[13px] text-muted">{description}</D.Description>
                     ) : (

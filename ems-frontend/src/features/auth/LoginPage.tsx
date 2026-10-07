@@ -1,7 +1,6 @@
 import { Link, useSearchParams } from 'react-router'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -32,11 +31,11 @@ export function LoginPage() {
   return (
     <AuthLayout
       title="Sign in"
-      subtitle="Welcome back. Use the email your workspace knows you by."
+      subtitle="Use the work email your organization registered you with."
       footer={
         <>
-          New here?{' '}
-          <Link to="/register" className="font-medium text-foreground underline-offset-4 hover:underline">
+          Setting up Roster for your company?{' '}
+          <Link to="/register" viewTransition className="font-medium text-foreground underline decoration-border-strong underline-offset-4 hover:decoration-foreground">
             Create a workspace
           </Link>
         </>
@@ -55,7 +54,7 @@ export function LoginPage() {
           <PasswordInput autoComplete="current-password" placeholder="••••••••" {...form.register('password')} />
         </Field>
         <Button type="submit" variant="primary" size="lg" className="mt-2" loading={login.isPending}>
-          Continue <ArrowRight />
+          Sign in
         </Button>
       </form>
     </AuthLayout>

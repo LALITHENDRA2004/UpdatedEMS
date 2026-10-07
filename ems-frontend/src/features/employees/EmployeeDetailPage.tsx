@@ -1,21 +1,21 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { differenceInCalendarDays, formatDistanceToNowStrict, parseISO } from 'date-fns'
-import { ChevronRight, Copy, Mail, Pencil, Phone, Trash2, UserX } from 'lucide-react'
-import { toast } from 'sonner'
+import { Check, ChevronLeft, Copy, Pencil, Trash2, UserX } from 'lucide-react'
 import { useCan } from '@/auth/use-auth'
 import { Button } from '@/components/ui/button'
-import { Avatar, Card, Skeleton } from '@/components/ui/misc'
-import { PageBody, PageHeader } from '@/components/layout/PageHeader'
+import { Avatar, Skeleton } from '@/components/ui/misc'
 import { EmptyState, ErrorState } from '@/components/feedback/states'
-import { fadeUp, stagger } from '@/components/feedback/motion'
-import { formatCurrency, formatDate } from '@/lib/format'
+import { ease, useCountUp } from '@/components/feedback/motion'
+import { formatCurrency, formatDate, STATUS_LABEL } from '@/lib/format'
 import { initials } from '@/lib/utils'
 import { useEmployee } from './api'
 import { EmployeeSheet } from './EmployeeSheet'
 import { DeleteEmployeeDialog } from './DeleteEmployeeDialog'
 import { StatusBadge } from './StatusBadge'
+
+const fileNumber = (id: number) => String(id).padStart(4, '0')
 
 export function EmployeeDetailPage() {
   const id = Number(useParams().id)
@@ -26,35 +26,37 @@ export function EmployeeDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  const crumb = (
-    <span className="flex items-center gap-1">
-      <Link to="/employees" className="hover:text-foreground">
-        Employees
-      </Link>
-      <ChevronRight className="size-3" />
-    </span>
+  const back = (
+    <Link
+      to="/employees"
+      viewTransition
+      className="inline-flex items-center gap-1 text-[13px] text-muted transition-colors hover:text-foreground"
+    >
+      <ChevronLeft className="size-4" /> All employees
+    </Link>
   )
 
   if (employee.isPending) {
     return (
-      <>
-        <PageHeader eyebrow={crumb} title={<Skeleton className="h-6 w-48" />} description={<Skeleton className="mt-1 h-3 w-32" />} />
-        <PageBody>
-          <Skeleton className="h-64 w-full max-w-3xl" />
-        </PageBody>
-      </>
+      <div className="px-4 py-6 md:px-8 md:py-8">
+        {back}
+        <Skeleton className="mt-8 h-72 w-full max-w-5xl rounded-xl" />
+      </div>
     )
   }
 
   if (employee.isError) {
-    return employee.error && 'status' in employee.error && employee.error.status === 404 ? (
+    const notFound = 'status' in employee.error && employee.error.status === 404
+    return notFound ? (
       <EmptyState
         icon={<UserX />}
-        title="Employee not found"
-        description="They may have been removed, or the link points to another organization."
+        title="No file for this person"
+        description="They may have been removed, or the link belongs to another organization."
         action={
           <Button asChild>
-            <Link to="/employees">Back to employees</Link>
+            <Link to="/employees" viewTransition>
+              Back to employees
+            </Link>
           </Button>
         }
       />
@@ -65,145 +67,171 @@ export function EmployeeDetailPage() {
 
   const e = employee.data
   const joined = parseISO(e.dateOfJoining)
+  const days = differenceInCalendarDays(new Date(), joined)
   const tenure =
-    differenceInCalendarDays(new Date(), joined) < 1
-      ? 'joined today'
-      : differenceInCalendarDays(new Date(), joined) < 30
-        ? `${formatDistanceToNowStrict(joined, { unit: 'day' })} ago`
+    days < 1
+      ? 'Started today'
+      : days < 30
+        ? `${formatDistanceToNowStrict(joined, { unit: 'day' })} in`
         : `${formatDistanceToNowStrict(joined, { roundingMethod: 'floor' })} with the team`
 
-  const copy = (text: string, label: string) =>
-    navigator.clipboard.writeText(text).then(() => toast.success(`${label} copied`))
-
   return (
-    <>
-      <PageHeader
-        eyebrow={crumb}
-        title={
-          <span className="flex items-center gap-3">
-            <Avatar name={initials(e.firstName, e.lastName)} seed={e.id} className="size-10 rounded-lg text-sm" />
-            <span className="min-w-0">
-              <span className="block truncate">
-                {e.firstName} {e.lastName}
-              </span>
-            </span>
-          </span>
-        }
-        description={
-          <span className="flex flex-wrap items-center gap-2">
-            {e.jobTitle} <span className="text-subtle">·</span> <StatusBadge status={e.status} />
-          </span>
-        }
-        actions={
-          <>
-            {canDelete && (
-              <Button variant="danger-ghost" onClick={() => setConfirmDelete(true)}>
-                <Trash2 /> Remove
-              </Button>
-            )}
-            {canEdit && (
-              <Button onClick={() => setEditOpen(true)}>
-                <Pencil /> Edit
-              </Button>
-            )}
-          </>
-        }
-      />
+    <div className="px-4 py-6 md:px-8 md:py-8">
+      {back}
 
-      <PageBody>
-        <motion.div
-          variants={stagger(0.05)}
-          initial="hidden"
-          animate="show"
-          className="grid max-w-5xl gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]"
-        >
-          <motion.div variants={fadeUp}>
-            <Card>
-              <h2 className="border-b border-border px-5 py-3 text-[13px] font-semibold">Details</h2>
-              <dl className="divide-y divide-border">
-                <Row label="Email">
-                  <span className="flex items-center gap-2">
-                    <a href={`mailto:${e.email}`} className="truncate hover:underline">
-                      {e.email}
-                    </a>
-                    <IconAction label="Copy email" onClick={() => copy(e.email, 'Email')}>
-                      <Copy />
-                    </IconAction>
+      {/* The personnel file: a manila tab carrying the file number, attached to the folder body. */}
+      <article className="mt-8 max-w-5xl">
+        <div className="relative z-10 -mb-px inline-flex items-center gap-2 rounded-t-lg border border-b-0 border-manila bg-manila px-4 pb-1.5 pt-2 text-xs font-semibold text-[#3d2f08]">
+          File <span className="num">No. {fileNumber(e.id)}</span>
+        </div>
+        <div className="rounded-xl rounded-tl-none border border-border-strong bg-surface shadow-[0_1px_0_var(--manila)_inset,0_8px_24px_-16px_rgb(28_39_51/0.25)]">
+          <header className="flex flex-col gap-5 border-b border-border p-6 sm:flex-row sm:items-center sm:justify-between md:p-8">
+            <div className="flex min-w-0 items-center gap-5">
+              <Avatar
+                name={initials(e.firstName, e.lastName)}
+                seed={e.id}
+                className="size-[72px] rounded-xl text-xl"
+                viewTransitionName={`emp-${e.id}`}
+              />
+              <div className="min-w-0">
+                <motion.h1
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, ease, delay: 0.05 }}
+                  className="truncate font-display text-[34px] font-semibold leading-[1.05]"
+                >
+                  {e.firstName} {e.lastName}
+                </motion.h1>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[14px] text-muted">
+                  <span>
+                    {e.jobTitle}
+                    {e.departmentName && <span className="text-subtle"> in </span>}
+                    {e.departmentName}
                   </span>
-                </Row>
-                <Row label="Phone">
-                  {e.phone ? (
-                    <a href={`tel:${e.phone}`} className="num hover:underline">
-                      {e.phone}
-                    </a>
-                  ) : (
-                    <span className="text-subtle">Not provided</span>
-                  )}
-                </Row>
-                <Row label="Job title">{e.jobTitle}</Row>
-                <Row label="Joined">
-                  <span className="num">{formatDate(e.dateOfJoining)}</span>
-                  <span className="ml-2 text-muted">· {tenure}</span>
-                </Row>
-              </dl>
-            </Card>
-          </motion.div>
-
-          <motion.div variants={fadeUp} className="flex flex-col gap-4">
-            <Card className="p-5">
-              <p className="text-xs font-medium text-muted">Annual salary</p>
-              <p className="num mt-1.5 text-[26px] font-semibold tracking-tight">{formatCurrency(e.salary)}</p>
-              <p className="num mt-1 text-xs text-muted">≈ {formatCurrency(e.salary / 12)} / month</p>
-            </Card>
-            <Card className="p-5">
-              <p className="text-xs font-medium text-muted">Quick contact</p>
-              <div className="mt-3 flex gap-2">
-                <Button asChild size="sm">
-                  <a href={`mailto:${e.email}`}>
-                    <Mail /> Email
-                  </a>
-                </Button>
-                {e.phone && (
-                  <Button asChild size="sm">
-                    <a href={`tel:${e.phone}`}>
-                      <Phone /> Call
-                    </a>
+                  <StatusBadge status={e.status} />
+                </div>
+              </div>
+            </div>
+            {(canEdit || canDelete) && (
+              <div className="flex shrink-0 gap-2">
+                {canDelete && (
+                  <Button variant="danger-ghost" onClick={() => setConfirmDelete(true)}>
+                    <Trash2 /> Remove
+                  </Button>
+                )}
+                {canEdit && (
+                  <Button onClick={() => setEditOpen(true)}>
+                    <Pencil /> Edit details
                   </Button>
                 )}
               </div>
-              <p className="mt-4 font-mono text-[11px] text-subtle">EMP-{String(e.id).padStart(5, '0')}</p>
-            </Card>
-          </motion.div>
-        </motion.div>
-      </PageBody>
+            )}
+          </header>
+
+          <div className="grid divide-y divide-border lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+            <FileSection title="Contact">
+              <Field label="Email">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <a href={`mailto:${e.email}`} className="truncate underline-offset-4 hover:underline">
+                    {e.email}
+                  </a>
+                  <CopyButton value={e.email} label="Copy email" />
+                </span>
+              </Field>
+              <Field label="Phone">
+                {e.phone ? (
+                  <a href={`tel:${e.phone}`} className="num underline-offset-4 hover:underline">
+                    {e.phone}
+                  </a>
+                ) : (
+                  <span className="text-subtle">Not on file</span>
+                )}
+              </Field>
+            </FileSection>
+
+            <FileSection title="Pay">
+              <Field label="Annual salary">
+                <Salary value={e.salary} />
+              </Field>
+              <Field label="Per month">
+                <span className="num">{formatCurrency(e.salary / 12)}</span>
+              </Field>
+            </FileSection>
+
+            <FileSection title="Record">
+              <Field label="Department">
+                {e.departmentName ?? <span className="text-subtle">Not assigned</span>}
+              </Field>
+              <Field label="Joined">
+                <span className="num">{formatDate(e.dateOfJoining)}</span>
+              </Field>
+              <Field label="Tenure">{tenure}</Field>
+              <Field label="Status">{STATUS_LABEL[e.status]}</Field>
+            </FileSection>
+          </div>
+        </div>
+      </article>
 
       <EmployeeSheet open={editOpen} onOpenChange={setEditOpen} employee={e} />
       <DeleteEmployeeDialog
         employee={confirmDelete ? e : null}
         onClose={() => setConfirmDelete(false)}
-        onDeleted={() => navigate('/employees', { replace: true })}
+        onDeleted={() => navigate('/employees', { replace: true, viewTransition: true })}
       />
-    </>
-  )
-}
-
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-4 px-5 py-3 text-[13px] sm:grid-cols-[140px_minmax(0,1fr)]">
-      <dt className="text-muted">{label}</dt>
-      <dd className="min-w-0">{children}</dd>
     </div>
   )
 }
 
-function IconAction({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+function FileSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="p-6 md:px-8">
+      <h2 className="font-display text-[15px] font-semibold">{title}</h2>
+      <dl className="mt-3">{children}</dl>
+    </section>
+  )
+}
+
+/** A ruled form line: label above, value below, hairline between lines. */
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="border-b border-dashed border-border py-3 last:border-0">
+      <dt className="text-xs text-muted">{label}</dt>
+      <dd className="mt-1 min-w-0 text-[14px]">{children}</dd>
+    </div>
+  )
+}
+
+/** Animates when the salary changes after an edit, so the update is visible. */
+function Salary({ value }: { value: number }) {
+  const shown = useCountUp(value) ?? value
+  return <span className="num font-display text-[22px] font-semibold">{formatCurrency(shown)}</span>
+}
+
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    await navigator.clipboard.writeText(value)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
   return (
     <button
-      onClick={onClick}
-      aria-label={label}
-      className="rounded p-1 text-subtle transition-colors hover:bg-surface-2 hover:text-foreground [&_svg]:size-3.5"
+      onClick={copy}
+      aria-label={copied ? 'Copied' : label}
+      className="relative grid size-6 shrink-0 place-items-center rounded text-subtle transition-colors hover:bg-surface-2 hover:text-foreground"
     >
-      {children}
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span
+          key={copied ? 'done' : 'copy'}
+          initial={{ opacity: 0, scale: 0.6 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.6 }}
+          transition={{ duration: 0.15 }}
+          className="flex [&_svg]:size-3.5"
+        >
+          {copied ? <Check className="text-success" /> : <Copy />}
+        </motion.span>
+      </AnimatePresence>
     </button>
   )
 }

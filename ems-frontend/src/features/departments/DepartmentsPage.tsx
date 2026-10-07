@@ -15,7 +15,7 @@ import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/compo
 import { PageBody, PageHeader } from '@/components/layout/PageHeader'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { EmptyState, ErrorState } from '@/components/feedback/states'
-import { ease } from '@/components/feedback/motion'
+import { ease, spring } from '@/components/feedback/motion'
 import { toApiError } from '@/lib/errors'
 import { handleFormError } from '@/lib/forms'
 import { formatDate, formatRelative } from '@/lib/format'
@@ -39,6 +39,15 @@ export function DepartmentsPage() {
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [departments.data, search])
 
+  const groups = useMemo(() => {
+    const map = new Map<string, Department[]>()
+    for (const d of list) {
+      const letter = /[a-z]/i.test(d.name[0]) ? d.name[0].toUpperCase() : '#'
+      map.set(letter, [...(map.get(letter) ?? []), d])
+    }
+    return [...map.entries()]
+  }, [list])
+
   const confirmDelete = () =>
     deleting &&
     remove.mutate(deleting.id, {
@@ -57,20 +66,20 @@ export function DepartmentsPage() {
     <>
       <PageHeader
         title="Departments"
-        description="How your organization is grouped."
+        description="The teams your people belong to, listed A to Z."
         actions={
           canCreate && (
             <Button variant="primary" onClick={() => setEditing('new')}>
-              <Plus /> New department
+              <Plus /> Add department
             </Button>
           )
         }
       />
       <PageBody>
         {departments.isPending ? (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-2">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-[104px]" />
+              <Skeleton key={i} className="h-[52px]" />
             ))}
           </div>
         ) : departments.isError ? (
@@ -83,7 +92,7 @@ export function DepartmentsPage() {
             action={
               canCreate && (
                 <Button variant="primary" onClick={() => setEditing('new')}>
-                  <Plus /> Create the first one
+                  <Plus /> Add department
                 </Button>
               )
             }
@@ -102,60 +111,76 @@ export function DepartmentsPage() {
                 className="h-8 w-full sm:w-64"
               />
             </div>
-            <motion.ul layout className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {/* Card-catalog index: departments grouped under their initial letter. */}
+            <div className="overflow-hidden rounded-lg border border-border">
               <AnimatePresence initial={false} mode="popLayout">
-                {list.map((d, i) => (
-                  <motion.li
-                    key={d.id}
+                {groups.map(([letter, items]) => (
+                  <motion.section
+                    key={letter}
                     layout
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0, transition: { delay: Math.min(i, 12) * 0.025, duration: 0.25, ease } }}
-                    exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.15 } }}
-                    className="group relative flex flex-col justify-between rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2, layout: spring.snappy }}
+                    className="grid grid-cols-[56px_minmax(0,1fr)] border-b border-border last:border-0"
+                    aria-label={`Departments starting with ${letter}`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface-2 font-mono text-[11px] font-medium text-muted ring-1 ring-inset ring-border">
-                          {d.name.slice(0, 2).toUpperCase()}
-                        </span>
-                        <h3 className="truncate text-[14px] font-medium">{d.name}</h3>
-                      </div>
-                      {(canUpdate || canDelete) && (
-                        <Menu>
-                          <MenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              className="-mr-1.5 -mt-1 opacity-50 group-hover:opacity-100 data-[state=open]:opacity-100"
-                              aria-label={`Actions for ${d.name}`}
-                            >
-                              <MoreHorizontal />
-                            </Button>
-                          </MenuTrigger>
-                          <MenuContent>
-                            {canUpdate && (
-                              <MenuItem onSelect={() => setEditing(d)}>
-                                <Pencil /> Rename
-                              </MenuItem>
-                            )}
-                            {canUpdate && canDelete && <MenuSeparator />}
-                            {canDelete && (
-                              <MenuItem tone="danger" onSelect={() => setDeleting(d)}>
-                                <Trash2 /> Delete
-                              </MenuItem>
-                            )}
-                          </MenuContent>
-                        </Menu>
-                      )}
+                    <div className="border-r border-border bg-surface-2/60 pt-3.5 text-center font-display text-[17px] font-semibold text-muted">
+                      {letter}
                     </div>
-                    <div className="mt-5 flex items-center justify-between text-xs text-muted">
-                      <span className="num">Created {formatDate(d.createdAt)}</span>
-                      {d.updatedAt !== d.createdAt && <span>Edited {formatRelative(d.updatedAt)}</span>}
-                    </div>
-                  </motion.li>
+                    <ul>
+                      <AnimatePresence initial={false} mode="popLayout">
+                        {items.map((d) => (
+                          <motion.li
+                            key={d.id}
+                            layout
+                            initial={{ opacity: 0, x: -6 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -12, transition: { duration: 0.15 } }}
+                            transition={{ duration: 0.22, ease, layout: spring.snappy }}
+                            className="group flex min-h-[52px] items-center gap-4 border-b border-border px-4 last:border-0 transition-[background-color,box-shadow] duration-150 hover:bg-surface-2/60 hover:shadow-[inset_3px_0_0_var(--manila)]"
+                          >
+                            <h3 className="min-w-0 flex-1 truncate font-display text-[16px] font-medium">{d.name}</h3>
+                            <span className="hidden text-xs text-muted sm:block">
+                              {d.updatedAt !== d.createdAt
+                                ? `Renamed ${formatRelative(d.updatedAt)}`
+                                : `Added ${formatDate(d.createdAt)}`}
+                            </span>
+                            {(canUpdate || canDelete) && (
+                              <Menu>
+                                <MenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="opacity-60 group-hover:opacity-100 data-[state=open]:opacity-100"
+                                    aria-label={`Actions for ${d.name}`}
+                                  >
+                                    <MoreHorizontal />
+                                  </Button>
+                                </MenuTrigger>
+                                <MenuContent>
+                                  {canUpdate && (
+                                    <MenuItem onSelect={() => setEditing(d)}>
+                                      <Pencil /> Rename
+                                    </MenuItem>
+                                  )}
+                                  {canUpdate && canDelete && <MenuSeparator />}
+                                  {canDelete && (
+                                    <MenuItem tone="danger" onSelect={() => setDeleting(d)}>
+                                      <Trash2 /> Delete
+                                    </MenuItem>
+                                  )}
+                                </MenuContent>
+                              </Menu>
+                            )}
+                          </motion.li>
+                        ))}
+                      </AnimatePresence>
+                    </ul>
+                  </motion.section>
                 ))}
               </AnimatePresence>
-            </motion.ul>
+            </div>
             {list.length === 0 && (
               <p className="py-12 text-center text-[13px] text-muted">No department matches “{search}”.</p>
             )}
@@ -194,7 +219,7 @@ function DepartmentDialog({ target, onClose }: { target: Department | 'new' | nu
   const onSubmit = form.handleSubmit(({ name }) =>
     save.mutateAsync({ id: editing?.id, name }).then(
       (d) => {
-        toast.success(editing ? 'Department renamed' : `${d.name} created`)
+        toast.success(editing ? 'Department renamed' : `${d.name} added`)
         onClose()
       },
       (err) => {
@@ -208,7 +233,7 @@ function DepartmentDialog({ target, onClose }: { target: Department | 'new' | nu
     <Dialog
       open={!!target}
       onOpenChange={(o) => !o && onClose()}
-      title={editing ? 'Rename department' : 'New department'}
+      title={editing ? 'Rename department' : 'Add department'}
       description={editing ? undefined : 'Names are unique within your organization.'}
       footer={
         <>
@@ -216,7 +241,7 @@ function DepartmentDialog({ target, onClose }: { target: Department | 'new' | nu
             Cancel
           </Button>
           <Button variant="primary" type="submit" form="department-form" loading={save.isPending}>
-            {editing ? 'Save' : 'Create'}
+            {editing ? 'Rename' : 'Add department'}
           </Button>
         </>
       }

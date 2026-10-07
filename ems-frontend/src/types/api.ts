@@ -46,6 +46,8 @@ export interface EmployeeRequest {
   jobTitle: string
   salary: number
   dateOfJoining: IsoDate
+  /** Optional. PUT is a full replace, so omitting it clears the department. */
+  departmentId?: number | null
 }
 
 export interface Employee {
@@ -59,6 +61,36 @@ export interface Employee {
   dateOfJoining: IsoDate
   status: EmployeeStatus
   organizationId: number
+  departmentId: number | null
+  departmentName: string | null
+}
+
+/** Spring page wrapper returned by paginated endpoints (ems-backend dto/PageResponse). */
+export interface PageResponse<T> {
+  content: T[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+  first: boolean
+  last: boolean
+}
+
+/** Sort fields the backend accepts (EmployeeService.ALLOWED_SORT_FIELDS); anything else is a 400. */
+export const EMPLOYEE_SORT_FIELDS = ['firstName', 'lastName', 'email', 'salary', 'dateOfJoining', 'status'] as const
+export type EmployeeSortField = (typeof EMPLOYEE_SORT_FIELDS)[number]
+
+export interface EmployeeQuery {
+  /** Matches first or last name (contains, case-insensitive). */
+  name?: string
+  /** Department name (case-insensitive exact match). */
+  department?: string
+  status?: EmployeeStatus
+  page?: number
+  /** 1–100 */
+  size?: number
+  sort?: EmployeeSortField
+  direction?: 'asc' | 'desc'
 }
 
 export interface DepartmentRequest {

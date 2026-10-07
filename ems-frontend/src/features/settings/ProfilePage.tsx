@@ -42,7 +42,7 @@ export function ProfilePage() {
               className={cn(
                 'flex items-center gap-2.5 rounded-md border px-3 py-2.5 text-[13px] font-medium transition-colors',
                 theme === value
-                  ? 'border-accent bg-accent-soft text-accent-soft-fg'
+                  ? 'border-manila bg-manila-soft text-manila-ink'
                   : 'border-border-strong text-muted hover:text-foreground',
               )}
               aria-pressed={theme === value}
@@ -62,8 +62,8 @@ export function ProfilePage() {
           </Button>
         }
       >
-        <p className="font-mono text-xs text-subtle">
-          user {session.userId} · org {session.organizationId}
+        <p className="num text-xs text-muted">
+          User ID {session.userId}, workspace ID {session.organizationId}
         </p>
       </SettingsSection>
     </SettingsLayout>

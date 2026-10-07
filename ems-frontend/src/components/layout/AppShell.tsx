@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { useLocation, useOutlet } from 'react-router'
+import { Outlet } from 'react-router'
 import { Dialog as D } from 'radix-ui'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Menu as MenuIcon, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { pageTransition } from '@/components/feedback/motion'
+import { spring } from '@/components/feedback/motion'
 import { Sidebar } from './Sidebar'
 import { CommandMenu } from './CommandMenu'
 import { Logo } from './Logo'
@@ -12,8 +12,6 @@ import { Logo } from './Logo'
 export function AppShell() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const location = useLocation()
-  const outlet = useOutlet()
 
   return (
     <div className="min-h-dvh bg-background md:grid md:grid-cols-[232px_1fr]">
@@ -38,7 +36,7 @@ export function AppShell() {
             <D.Portal forceMount>
               <D.Overlay asChild forceMount>
                 <motion.div
-                  className="fixed inset-0 z-40 bg-[oklch(0.2_0.01_70/0.3)] md:hidden"
+                  className="fixed inset-0 z-40 bg-[rgb(17_24_33/0.3)] md:hidden"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -50,7 +48,7 @@ export function AppShell() {
                   initial={{ x: '-100%' }}
                   animate={{ x: 0 }}
                   exit={{ x: '-100%' }}
-                  transition={{ type: 'spring', stiffness: 420, damping: 40 }}
+                  transition={spring.sheet}
                 >
                   <D.Title className="sr-only">Navigation</D.Title>
                   <Sidebar
@@ -69,12 +67,12 @@ export function AppShell() {
 
       {/* Content panel: an inset sheet on desktop, flush on mobile */}
       <main className="min-w-0 md:py-2 md:pr-2">
-        <div className="min-h-[calc(100dvh-3rem)] bg-surface md:min-h-[calc(100dvh-1rem)] md:rounded-xl md:border md:border-border md:shadow-[0_1px_2px_oklch(0.2_0.01_70/0.04)]">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={location.pathname} {...pageTransition}>
-              {outlet}
-            </motion.div>
-          </AnimatePresence>
+        {/* Named view-transition region: route changes crossfade here while the sidebar stays put. */}
+        <div
+          style={{ viewTransitionName: 'page' }}
+          className="min-h-[calc(100dvh-3rem)] bg-surface md:min-h-[calc(100dvh-1rem)] md:rounded-xl md:border md:border-border md:shadow-[0_1px_3px_rgb(28_39_51/0.06)]"
+        >
+          <Outlet />
         </div>
       </main>
 

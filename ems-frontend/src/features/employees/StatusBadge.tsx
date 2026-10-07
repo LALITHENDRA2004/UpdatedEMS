@@ -3,7 +3,7 @@ import { STATUS_LABEL } from '@/lib/format'
 import type { EmployeeStatus } from '@/types/api'
 
 const TONE = {
-  ACTIVE: 'accent',
+  ACTIVE: 'success',
   ON_LEAVE: 'warning',
   INACTIVE: 'neutral',
   TERMINATED: 'danger',

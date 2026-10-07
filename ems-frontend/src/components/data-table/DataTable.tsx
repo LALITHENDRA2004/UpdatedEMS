@@ -25,6 +25,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { spring } from '@/components/feedback/motion'
 
 interface ColumnMeta {
   /** Applied to both th and td. */
@@ -62,6 +63,20 @@ interface DataTableProps<T extends RowData> {
   /** Card renderer used below the md breakpoint instead of the table. */
   renderMobile?: (row: T) => ReactNode
   empty: ReactNode
+  /**
+   * Server-driven mode: `data` is already one sorted page. Sorting and paging are controlled
+   * by the caller (who fetches), and `rowCount` is the server's total.
+   */
+  server?: {
+    rowCount: number
+    sorting: SortingState
+    onSortingChange: (s: SortingState) => void
+    pagination: PaginationState
+    onPaginationChange: (p: PaginationState) => void
+    /** True while a new page is loading; the current rows dim instead of disappearing. */
+    fetching?: boolean
+    pageSizeOptions?: number[]
+  }
 }
 
 export function DataTable<T extends RowData>({
@@ -74,9 +89,12 @@ export function DataTable<T extends RowData>({
   onRowClick,
   renderMobile,
   empty,
+  server,
 }: DataTableProps<T>) {
-  const [sorting, setSorting] = useState<SortingState>(initialSorting)
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize })
+  const [localSorting, setLocalSorting] = useState<SortingState>(initialSorting)
+  const [localPagination, setLocalPagination] = useState<PaginationState>({ pageIndex: 0, pageSize })
+  const sorting = server?.sorting ?? localSorting
+  const pagination = server?.pagination ?? localPagination
 
   const table = useTable({
     features: tableFeatureSet,
@@ -84,22 +102,38 @@ export function DataTable<T extends RowData>({
     data,
     getRowId: (row) => getRowId(row),
     state: { sorting, pagination, globalFilter },
-    onSortingChange: setSorting,
-    onPaginationChange: setPagination,
+    onSortingChange: (u) => {
+      const next = typeof u === 'function' ? u(sorting) : u
+      if (server) server.onSortingChange(next)
+      else setLocalSorting(next)
+    },
+    onPaginationChange: (u) => {
+      const next = typeof u === 'function' ? u(pagination) : u
+      if (server) server.onPaginationChange(next)
+      else setLocalPagination(next)
+    },
     globalFilterFn: 'includesString',
     enableSortingRemoval: false,
+    manualSorting: !!server,
+    manualPagination: !!server,
+    manualFiltering: !!server,
+    rowCount: server?.rowCount,
+    autoResetPageIndex: !server,
   })
 
   const rows = table.getRowModel().rows
-  const total = table.getPrePaginatedRowModel().rows.length
-  const { pageIndex } = table.state.pagination
-  const from = total === 0 ? 0 : pageIndex * pageSize + 1
-  const to = Math.min(total, (pageIndex + 1) * pageSize)
+  const total = server ? server.rowCount : table.getPrePaginatedRowModel().rows.length
+  const { pageIndex, pageSize: size } = table.state.pagination
+  const from = total === 0 ? 0 : pageIndex * size + 1
+  const to = Math.min(total, (pageIndex + 1) * size)
 
   if (total === 0) return <>{empty}</>
 
   return (
-    <div>
+    <div
+      aria-busy={server?.fetching || undefined}
+      className={cn('transition-opacity duration-200', server?.fetching && 'opacity-60')}
+    >
       {/* Desktop table */}
       <div className={cn('overflow-x-auto', renderMobile && 'hidden md:block')}>
         <table className="w-full border-collapse text-[13px]">
@@ -114,7 +148,7 @@ export function DataTable<T extends RowData>({
                     <th
                       key={header.id}
                       className={cn(
-                        'h-9 whitespace-nowrap px-3 text-left text-xs font-medium text-muted first:pl-4 last:pr-4 md:first:pl-8 md:last:pr-8',
+                        'h-10 whitespace-nowrap bg-surface-2/50 px-3 text-left text-xs font-medium text-muted first:pl-4 last:pr-4 md:first:pl-8 md:last:pr-8',
                         meta?.align === 'end' && 'text-right',
                         meta?.className,
                       )}
@@ -155,11 +189,13 @@ export function DataTable<T extends RowData>({
                   layout="position"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.18 }}
+                  exit={{ opacity: 0, x: -12, transition: { duration: 0.18 } }}
+                  transition={{ duration: 0.2, layout: spring.snappy }}
                   onClick={onRowClick ? () => onRowClick(row.original) : undefined}
                   className={cn(
-                    'group border-b border-border last:border-0 transition-colors hover:bg-surface-2/60',
+                    // A manila edge marks the row under the pointer, like a tabbed file being pulled.
+                    'group border-b border-border last:border-0 transition-[background-color] duration-150 hover:bg-surface-2/70',
+                    '[&>td:first-child]:transition-[box-shadow] [&>td:first-child]:duration-150 hover:[&>td:first-child]:shadow-[inset_3px_0_0_var(--manila)]',
                     onRowClick && 'cursor-pointer',
                   )}
                 >
@@ -169,7 +205,7 @@ export function DataTable<T extends RowData>({
                       <td
                         key={cell.id}
                         className={cn(
-                          'h-12 px-3 align-middle first:pl-4 last:pr-4 md:first:pl-8 md:last:pr-8',
+                          'h-[52px] px-3 align-middle first:pl-4 last:pr-4 md:first:pl-8 md:last:pr-8',
                           meta?.align === 'end' && 'text-right',
                           meta?.className,
                         )}
@@ -202,8 +238,26 @@ export function DataTable<T extends RowData>({
 
       {/* Footer */}
       <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-xs text-muted md:px-8">
-        <span className="num">
-          {from}–{to} of {total}
+        <span className="flex items-center gap-4">
+          <span className="num">
+            {from}–{to} of {total}
+          </span>
+          {server?.pageSizeOptions && (
+            <label className="hidden items-center gap-2 sm:flex">
+              Rows per page
+              <select
+                value={size}
+                onChange={(e) => server.onPaginationChange({ pageIndex: 0, pageSize: Number(e.target.value) })}
+                className="num h-7 rounded-md border border-border-strong bg-surface px-1.5 text-xs text-foreground"
+              >
+                {[...new Set([...server.pageSizeOptions, size])].sort((a, b) => a - b).map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </span>
         {table.getPageCount() > 1 && (
           <div className="flex items-center gap-1">

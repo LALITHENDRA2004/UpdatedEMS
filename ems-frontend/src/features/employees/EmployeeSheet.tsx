@@ -1,17 +1,19 @@
 import { useEffect, type ReactNode } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Sheet } from '@/components/ui/dialog'
+import { Select } from '@/components/ui/menu'
+import { useDepartments } from '@/features/departments/api'
 import { toApiError } from '@/lib/errors'
 import { handleFormError } from '@/lib/forms'
 import { toIsoDate } from '@/lib/format'
 import type { Employee } from '@/types/api'
 import { useSaveEmployee } from './api'
-import { employeeSchema, emptyEmployee, toFormValues, toRequest, type EmployeeFormValues } from './schemas'
+import { employeeSchema, emptyEmployee, NO_DEPARTMENT, toFormValues, toRequest, type EmployeeFormValues } from './schemas'
 
 interface EmployeeSheetProps {
   open: boolean
@@ -23,6 +25,14 @@ interface EmployeeSheetProps {
 
 export function EmployeeSheet({ open, onOpenChange, employee, onSaved }: EmployeeSheetProps) {
   const save = useSaveEmployee()
+  const departments = useDepartments()
+  const departmentOptions = [
+    { value: NO_DEPARTMENT, label: 'No department' },
+    ...(departments.data ?? [])
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((d) => ({ value: String(d.id), label: d.name })),
+  ]
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
     defaultValues: employee ? toFormValues(employee) : emptyEmployee(),
@@ -42,8 +52,11 @@ export function EmployeeSheet({ open, onOpenChange, employee, onSaved }: Employe
         onSaved?.(saved)
       },
       (err) => {
-        // Duplicate email inside the org comes back as a 409.
-        if (toApiError(err).status === 409) form.setError('email', { message: toApiError(err).message })
+        const e = toApiError(err)
+        // Duplicate email inside the org comes back as a 409; a stale department as a 404.
+        if (e.status === 409) form.setError('email', { message: e.message })
+        else if (e.status === 404 && /department/i.test(e.message))
+          form.setError('departmentId', { message: 'That department no longer exists. Pick another.' })
         else handleFormError(err, form.setError)
       },
     ),
@@ -73,7 +86,7 @@ export function EmployeeSheet({ open, onOpenChange, employee, onSaved }: Employe
       }
     >
       <form id="employee-form" onSubmit={onSubmit} className="flex flex-col gap-6" noValidate>
-        <Section title="Person">
+        <Section title="Personal details">
           <div className="grid grid-cols-2 gap-3">
             <Field label="First name" error={errors.firstName?.message}>
               <Input autoFocus {...form.register('firstName')} />
@@ -90,10 +103,19 @@ export function EmployeeSheet({ open, onOpenChange, employee, onSaved }: Employe
           </Field>
         </Section>
 
-        <Section title="Role">
+        <Section title="Job and pay">
           <Field label="Job title" error={errors.jobTitle?.message}>
             <Input placeholder="e.g. Senior Accountant" {...form.register('jobTitle')} />
           </Field>
+          <Controller
+            control={form.control}
+            name="departmentId"
+            render={({ field, fieldState }) => (
+              <Field label="Department" optional error={fieldState.error?.message}>
+                <Select value={field.value} onValueChange={field.onChange} options={departmentOptions} />
+              </Field>
+            )}
+          />
           <div className="grid grid-cols-2 gap-3">
             <Field label="Annual salary" error={errors.salary?.message}>
               <Input
@@ -119,7 +141,7 @@ export function EmployeeSheet({ open, onOpenChange, employee, onSaved }: Employe
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <fieldset className="flex flex-col gap-4">
-      <legend className="mb-3 text-xs font-medium uppercase tracking-[0.06em] text-subtle">{title}</legend>
+      <legend className="mb-3 font-display text-[15px] font-semibold">{title}</legend>
       {children}
     </fieldset>
   )

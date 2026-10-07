@@ -43,7 +43,3 @@ export function salaryBands(employees: Employee[]): SalaryBand[] {
     count: employees.filter((e) => e.salary >= lo && e.salary < hi).length,
   }))
 }
-
-export function recentHires(employees: Employee[], n = 5) {
-  return [...employees].sort((a, b) => b.dateOfJoining.localeCompare(a.dateOfJoining)).slice(0, n)
-}
