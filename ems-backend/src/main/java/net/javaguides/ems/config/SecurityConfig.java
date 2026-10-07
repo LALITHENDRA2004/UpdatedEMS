@@ -66,6 +66,7 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/auth/register",
                     "/api/auth/login",
+                    "/api/invitations/accept",
                     "/error"
                 ).permitAll()
 
