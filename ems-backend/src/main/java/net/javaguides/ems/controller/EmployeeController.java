@@ -1,7 +1,5 @@
 package net.javaguides.ems.controller;
 
-import java.util.List;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -13,12 +11,15 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import net.javaguides.ems.dto.CreateEmployeeRequest;
 import net.javaguides.ems.dto.EmployeeResponse;
+import net.javaguides.ems.dto.PageResponse;
 import net.javaguides.ems.dto.UpdateEmployeeRequest;
+import net.javaguides.ems.entity.EmployeeStatus;
 import net.javaguides.ems.service.EmployeeService;
 
 @RestController
@@ -26,79 +27,85 @@ import net.javaguides.ems.service.EmployeeService;
 @Validated
 public class EmployeeController {
 
-    private final EmployeeService employeeService;
+        private final EmployeeService employeeService;
 
-    public EmployeeController(
-            EmployeeService employeeService) {
+        public EmployeeController(
+                        EmployeeService employeeService) {
 
-        this.employeeService = employeeService;
-    }
+                this.employeeService = employeeService;
+        }
 
-    @PostMapping
-    @PreAuthorize(
-            "hasAnyRole('OWNER', 'ADMIN', 'HR')"
-    )
-    public ResponseEntity<EmployeeResponse> createEmployee(
-            @Valid @RequestBody CreateEmployeeRequest request) {
+        @PostMapping
+        @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'HR')")
+        public ResponseEntity<EmployeeResponse> createEmployee(
+                        @Valid @RequestBody CreateEmployeeRequest request) {
 
-        EmployeeResponse response =
-                employeeService.createEmployee(request);
+                EmployeeResponse response = employeeService.createEmployee(request);
 
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(response);
-    }
+                return ResponseEntity
+                                .status(HttpStatus.CREATED)
+                                .body(response);
+        }
 
-    @GetMapping
-    @PreAuthorize(
-            "hasAnyRole(" +
-            "'OWNER', 'ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'" +
-            ")"
-    )
-    public ResponseEntity<List<EmployeeResponse>>
-            getAllEmployees() {
+        @GetMapping
+        @PreAuthorize("hasAnyRole(" +
+                        "'OWNER', 'ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'" +
+                        ")")
+        public ResponseEntity<PageResponse<EmployeeResponse>> getEmployees(
 
-        return ResponseEntity.ok(
-                employeeService.getAllEmployees()
-        );
-    }
+                        @RequestParam(required = false) String name,
 
-    @GetMapping("/{id}")
-    @PreAuthorize(
-            "hasAnyRole(" +
-            "'OWNER', 'ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'" +
-            ")"
-    )
-    public ResponseEntity<EmployeeResponse> getEmployeeById(
-            @PathVariable Long id) {
+                        @RequestParam(required = false) String department,
 
-        return ResponseEntity.ok(
-                employeeService.getEmployeeById(id)
-        );
-    }
+                        @RequestParam(required = false) EmployeeStatus status,
 
-    @PutMapping("/{id}")
-    @PreAuthorize(
-            "hasAnyRole('OWNER', 'ADMIN', 'HR')"
-    )
-    public ResponseEntity<EmployeeResponse> updateEmployee(
-            @PathVariable Long id,
-            @Valid @RequestBody UpdateEmployeeRequest request) {
+                        @RequestParam(defaultValue = "0") int page,
 
-        return ResponseEntity.ok(
-                employeeService.updateEmployee(id, request)
-        );
-    }
+                        @RequestParam(defaultValue = "20") int size,
 
-    @DeleteMapping("/{id}")
-    @PreAuthorize(
-            "hasAnyRole('OWNER', 'ADMIN')"
-    )
-    public ResponseEntity<Void> deleteEmployee(
-            @PathVariable Long id) {
+                        @RequestParam(defaultValue = "firstName") String sort,
 
-        employeeService.deleteEmployee(id);
+                        @RequestParam(defaultValue = "asc") String direction) {
 
-        return ResponseEntity.noContent().build();
-    }
+                return ResponseEntity.ok(
+                                employeeService.searchEmployees(
+                                                name,
+                                                department,
+                                                status,
+                                                page,
+                                                size,
+                                                sort,
+                                                direction));
+        }
+
+        @GetMapping("/{id}")
+        @PreAuthorize("hasAnyRole(" +
+                        "'OWNER', 'ADMIN', 'HR', 'MANAGER', 'EMPLOYEE'" +
+                        ")")
+        public ResponseEntity<EmployeeResponse> getEmployeeById(
+                        @PathVariable Long id) {
+
+                return ResponseEntity.ok(
+                                employeeService.getEmployeeById(id));
+        }
+
+        @PutMapping("/{id}")
+        @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'HR')")
+        public ResponseEntity<EmployeeResponse> updateEmployee(
+                        @PathVariable Long id,
+                        @Valid @RequestBody UpdateEmployeeRequest request) {
+
+                return ResponseEntity.ok(
+                                employeeService.updateEmployee(id, request));
+        }
+
+        @DeleteMapping("/{id}")
+        @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+        public ResponseEntity<Void> deleteEmployee(
+                        @PathVariable Long id) {
+
+                employeeService.deleteEmployee(id);
+
+                return ResponseEntity.noContent().build();
+        }
 }

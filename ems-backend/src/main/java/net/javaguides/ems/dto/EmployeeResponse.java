@@ -12,7 +12,6 @@ import lombok.Getter;
 public class EmployeeResponse {
 
     private Long id;
-
     private String firstName;
     private String lastName;
     private String email;
@@ -21,6 +20,7 @@ public class EmployeeResponse {
     private BigDecimal salary;
     private LocalDate dateOfJoining;
     private EmployeeStatus status;
-
     private Long organizationId;
+    private Long departmentId; 
+    private String departmentName;
 }

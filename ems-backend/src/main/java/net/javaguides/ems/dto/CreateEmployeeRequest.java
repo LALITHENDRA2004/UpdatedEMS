@@ -56,4 +56,6 @@ public class CreateEmployeeRequest {
             message = "Date of joining cannot be in the future"
     )
     private LocalDate dateOfJoining;
+
+    private Long departmentId;
 }

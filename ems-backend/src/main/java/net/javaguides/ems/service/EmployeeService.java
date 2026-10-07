@@ -1,211 +1,357 @@
 package net.javaguides.ems.service;
 
 import java.util.List;
+import java.util.Set;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import net.javaguides.ems.dto.CreateEmployeeRequest;
 import net.javaguides.ems.dto.EmployeeResponse;
+import net.javaguides.ems.dto.PageResponse;
 import net.javaguides.ems.dto.UpdateEmployeeRequest;
+import net.javaguides.ems.entity.Department;
 import net.javaguides.ems.entity.Employee;
 import net.javaguides.ems.entity.EmployeeStatus;
 import net.javaguides.ems.entity.Organization;
 import net.javaguides.ems.exception.DuplicateResourceException;
 import net.javaguides.ems.exception.ResourceNotFoundException;
+import net.javaguides.ems.repository.DepartmentRepository;
 import net.javaguides.ems.repository.EmployeeRepository;
+import net.javaguides.ems.repository.EmployeeSpecification;
 import net.javaguides.ems.repository.OrganizationRepository;
-import net.javaguides.ems.security.AuthenticatedUser;
 import net.javaguides.ems.security.TenantSecurityService;
 
 @Service
 public class EmployeeService {
 
-    private final EmployeeRepository employeeRepository;
-    private final OrganizationRepository organizationRepository;
-    private final TenantSecurityService tenantSecurityService;
+        private final EmployeeRepository employeeRepository;
+        private final OrganizationRepository organizationRepository;
+        private final DepartmentRepository departmentRepository;
+        private final TenantSecurityService tenantSecurityService;
 
-    public EmployeeService(
-            EmployeeRepository employeeRepository,
-            OrganizationRepository organizationRepository,
-            TenantSecurityService tenantSecurityService) {
+        private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
+                        "firstName",
+                        "lastName",
+                        "email",
+                        "salary",
+                        "dateOfJoining",
+                        "status");
 
-        this.employeeRepository = employeeRepository;
-        this.organizationRepository = organizationRepository;
-        this.tenantSecurityService = tenantSecurityService;
-    }
+        public EmployeeService(
+                        EmployeeRepository employeeRepository,
+                        OrganizationRepository organizationRepository,
+                        DepartmentRepository departmentRepository,
+                        TenantSecurityService tenantSecurityService) {
 
-    @Transactional
-    public EmployeeResponse createEmployee(
-            CreateEmployeeRequest request) {
-
-        AuthenticatedUser currentUser =
-                tenantSecurityService.getCurrentUser();
-
-        Long organizationId =
-                currentUser.organizationId();
-
-        if (employeeRepository.existsByEmailAndOrganizationId(
-                request.getEmail(),
-                organizationId)) {
-
-            throw new DuplicateResourceException(
-                    "Employee with this email already exists"
-            );
+                this.employeeRepository = employeeRepository;
+                this.organizationRepository = organizationRepository;
+                this.departmentRepository = departmentRepository;
+                this.tenantSecurityService = tenantSecurityService;
         }
 
-        Organization organization =
-                organizationRepository.findById(organizationId)
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Organization not found"
-                                ));
+        @Transactional
+        public EmployeeResponse createEmployee(
+                        CreateEmployeeRequest request) {
 
-        Employee employee = new Employee();
+                Long organizationId = tenantSecurityService
+                                .getCurrentOrganizationId();
 
-        employee.setFirstName(request.getFirstName());
-        employee.setLastName(request.getLastName());
-        employee.setEmail(request.getEmail());
-        employee.setPhone(request.getPhone());
-        employee.setJobTitle(request.getJobTitle());
-        employee.setSalary(request.getSalary());
-        employee.setDateOfJoining(
-                request.getDateOfJoining()
-        );
-        employee.setStatus(EmployeeStatus.ACTIVE);
+                String email = request.getEmail()
+                                .trim()
+                                .toLowerCase();
 
-        employee.setOrganization(organization);
+                if (employeeRepository
+                                .existsByEmailAndOrganizationId(
+                                                email,
+                                                organizationId)) {
 
-        Employee savedEmployee =
-                employeeRepository.save(employee);
+                        throw new DuplicateResourceException(
+                                "Employee with this email already exists");
+                }
 
-        return toResponse(savedEmployee);
-    }
+                Organization organization = organizationRepository
+                                .findById(organizationId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Organization not found"));
 
-    @Transactional(readOnly = true)
-    public List<EmployeeResponse> getAllEmployees() {
+                Employee employee = new Employee();
 
-        Long organizationId =
-                tenantSecurityService
-                        .getCurrentOrganizationId();
+                employee.setFirstName(
+                                request.getFirstName().trim());
 
-        return employeeRepository
-                .findByOrganizationId(organizationId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
-    }
+                employee.setLastName(
+                                request.getLastName().trim());
 
-    @Transactional(readOnly = true)
-    public EmployeeResponse getEmployeeById(
-            Long employeeId) {
+                employee.setEmail(email);
 
-        Long organizationId =
-                tenantSecurityService
-                        .getCurrentOrganizationId();
+                employee.setPhone(
+                                request.getPhone());
 
-        Employee employee =
-                employeeRepository
-                        .findByIdAndOrganizationId(
-                                employeeId,
-                                organizationId
-                        )
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Employee not found"
-                                ));
+                employee.setJobTitle(
+                                request.getJobTitle().trim());
 
-        return toResponse(employee);
-    }
+                employee.setSalary(
+                                request.getSalary());
 
-    @Transactional
-    public EmployeeResponse updateEmployee(
-            Long employeeId,
-            UpdateEmployeeRequest request) {
+                employee.setDateOfJoining(
+                                request.getDateOfJoining());
 
-        Long organizationId =
-                tenantSecurityService
-                        .getCurrentOrganizationId();
+                employee.setStatus(
+                                EmployeeStatus.ACTIVE);
 
-        Employee employee =
-                employeeRepository
-                        .findByIdAndOrganizationId(
-                                employeeId,
-                                organizationId
-                        )
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Employee not found"
-                                ));
+                employee.setOrganization(
+                                organization);
 
-        boolean emailChanged =
-                !employee.getEmail()
-                        .equalsIgnoreCase(request.getEmail());
+                if (request.getDepartmentId() != null) {
 
-        if (emailChanged &&
-                employeeRepository
-                        .existsByEmailAndOrganizationIdAndIdNot(
-                                request.getEmail(),
-                                organizationId,
-                                employeeId
-                        )) {
+                        Department department = departmentRepository
+                                        .findByIdAndOrganizationId(
+                                                        request.getDepartmentId(),
+                                                        organizationId)
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Department not found"));
 
-            throw new DuplicateResourceException(
-                "Employee email already exists"
-            );
+                        employee.setDepartment(department);
+                }
+
+                Employee savedEmployee = employeeRepository.save(employee);
+
+                return toResponse(savedEmployee);
         }
 
-        employee.setFirstName(request.getFirstName());
-        employee.setLastName(request.getLastName());
-        employee.setEmail(request.getEmail());
-        employee.setPhone(request.getPhone());
-        employee.setJobTitle(request.getJobTitle());
-        employee.setSalary(request.getSalary());
-        employee.setDateOfJoining(
-                request.getDateOfJoining()
-        );
+        @Transactional(readOnly = true)
+        public List<EmployeeResponse> getAllEmployees() {
 
-        Employee updatedEmployee =
-                employeeRepository.save(employee);
+                Long organizationId = tenantSecurityService
+                                .getCurrentOrganizationId();
 
-        return toResponse(updatedEmployee);
-    }
+                return employeeRepository
+                                .findByOrganizationId(organizationId)
+                                .stream()
+                                .map(this::toResponse)
+                                .toList();
+        }
 
-    @Transactional
-    public void deleteEmployee(Long employeeId) {
+        @Transactional(readOnly = true)
+        public EmployeeResponse getEmployeeById(
+                        Long employeeId) {
 
-        Long organizationId =
-                tenantSecurityService
-                        .getCurrentOrganizationId();
+                Long organizationId = tenantSecurityService
+                                .getCurrentOrganizationId();
 
-        Employee employee =
-                employeeRepository
-                        .findByIdAndOrganizationId(
-                                employeeId,
-                                organizationId
-                        )
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Employee not found"
-                                ));
+                Employee employee = employeeRepository
+                                .findByIdAndOrganizationId(
+                                                employeeId,
+                                                organizationId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Employee not found"));
 
-        employeeRepository.delete(employee);
-    }
+                return toResponse(employee);
+        }
 
-    private EmployeeResponse toResponse(
-            Employee employee) {
+        @Transactional
+        public EmployeeResponse updateEmployee(
+                        Long employeeId,
+                        UpdateEmployeeRequest request) {
 
-        return new EmployeeResponse(
-                employee.getId(),
-                employee.getFirstName(),
-                employee.getLastName(),
-                employee.getEmail(),
-                employee.getPhone(),
-                employee.getJobTitle(),
-                employee.getSalary(),
-                employee.getDateOfJoining(),
-                employee.getStatus(),
-                employee.getOrganization().getId()
-        );
-    }
+                Long organizationId = tenantSecurityService
+                                .getCurrentOrganizationId();
+
+                Employee employee = employeeRepository
+                                .findByIdAndOrganizationId(
+                                                employeeId,
+                                                organizationId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Employee not found"));
+
+                String email = request.getEmail()
+                                .trim()
+                                .toLowerCase();
+
+                boolean emailChanged = !employee.getEmail()
+                                .equalsIgnoreCase(email);
+
+                if (emailChanged &&
+                                employeeRepository
+                                                .existsByEmailAndOrganizationIdAndIdNot(
+                                                                email,
+                                                                organizationId,
+                                                                employeeId)) {
+
+                        throw new DuplicateResourceException(
+                                        "Employee email already exists");
+                }
+
+                employee.setFirstName(
+                                request.getFirstName().trim());
+
+                employee.setLastName(
+                                request.getLastName().trim());
+
+                employee.setEmail(email);
+
+                employee.setPhone(
+                                request.getPhone());
+
+                employee.setJobTitle(
+                                request.getJobTitle().trim());
+
+                employee.setSalary(
+                                request.getSalary());
+
+                employee.setDateOfJoining(
+                                request.getDateOfJoining());
+
+                if (request.getDepartmentId() != null) {
+
+                        Department department = departmentRepository
+                                        .findByIdAndOrganizationId(
+                                                        request.getDepartmentId(),
+                                                        organizationId)
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Department not found"));
+
+                        employee.setDepartment(department);
+
+                } else {
+
+                        employee.setDepartment(null);
+                }
+
+                Employee updatedEmployee = employeeRepository.save(employee);
+
+                return toResponse(updatedEmployee);
+        }
+
+        @Transactional
+        public void deleteEmployee(Long employeeId) {
+
+                Long organizationId = tenantSecurityService
+                                .getCurrentOrganizationId();
+
+                Employee employee = employeeRepository
+                                .findByIdAndOrganizationId(
+                                                employeeId,
+                                                organizationId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Employee not found"));
+
+                employeeRepository.delete(employee);
+        }
+
+        @Transactional(readOnly = true)
+        public PageResponse<EmployeeResponse> searchEmployees(
+                        String name,
+                        String department,
+                        EmployeeStatus status,
+                        int page,
+                        int size,
+                        String sortBy,
+                        String direction) {
+
+                if (page < 0) {
+
+                        throw new IllegalArgumentException(
+                                        "Page must be greater than or equal to 0");
+                }
+
+                if (size < 1 || size > 100) {
+                        throw new IllegalArgumentException(
+                                        "Size must be between 1 and 100");
+                }
+
+                if (!ALLOWED_SORT_FIELDS.contains(sortBy)) {
+                        throw new IllegalArgumentException(
+                                        "Invalid sort field");
+                }
+
+                Sort.Direction sortDirection = "desc".equalsIgnoreCase(direction)
+                                ? Sort.Direction.DESC
+                                : Sort.Direction.ASC;
+
+                Pageable pageable = PageRequest.of(
+                                page,
+                                size,
+                                Sort.by(
+                                                sortDirection,
+                                                sortBy));
+
+                Long organizationId = tenantSecurityService
+                                .getCurrentOrganizationId();
+
+                Specification<Employee> specification = EmployeeSpecification
+                                .hasOrganization(
+                                                organizationId);
+
+                if (name != null &&
+                                !name.isBlank()) {
+
+                        specification = specification.and(
+                                        EmployeeSpecification.hasName(
+                                                        name.trim()));
+                }
+
+                if (department != null &&
+                                !department.isBlank()) {
+
+                        specification = specification.and(
+                                        EmployeeSpecification.hasDepartment(
+                                                        department.trim()));
+                }
+
+                if (status != null) {
+                        specification = specification.and(
+                                        EmployeeSpecification.hasStatus(
+                                                        status));
+                }
+
+                Page<Employee> employeePage = employeeRepository.findAll(
+                                specification,
+                                pageable);
+
+                List<EmployeeResponse> content = employeePage
+                                .getContent()
+                                .stream()
+                                .map(this::toResponse)
+                                .toList();
+
+                return new PageResponse<>(
+                                content,
+                                employeePage.getNumber(),
+                                employeePage.getSize(),
+                                employeePage.getTotalElements(),
+                                employeePage.getTotalPages(),
+                                employeePage.isFirst(),
+                                employeePage.isLast());
+        }
+
+        private EmployeeResponse toResponse(
+                        Employee employee) {
+
+                return new EmployeeResponse(
+                                employee.getId(),
+                                employee.getFirstName(),
+                                employee.getLastName(),
+                                employee.getEmail(),
+                                employee.getPhone(),
+                                employee.getJobTitle(),
+                                employee.getSalary(),
+                                employee.getDateOfJoining(),
+                                employee.getStatus(),
+                                employee.getOrganization().getId(),
+
+                                employee.getDepartment() != null
+                                                ? employee.getDepartment().getId()
+                                                : null,
+
+                                employee.getDepartment() != null
+                                                ? employee.getDepartment().getName()
+                                                : null);
+        }
 }
