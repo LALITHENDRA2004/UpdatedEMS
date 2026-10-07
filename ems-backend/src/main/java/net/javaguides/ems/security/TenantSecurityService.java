@@ -4,6 +4,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
+import net.javaguides.ems.exception.UnauthorizedException;
+
 @Component("tenantSecurity")
 public class TenantSecurityService {
     public AuthenticatedUser getCurrentUser() {
@@ -15,8 +17,8 @@ public class TenantSecurityService {
         if (authentication == null ||
                 !authentication.isAuthenticated()) {
 
-            throw new IllegalStateException(
-                    "No authenticated user"
+            throw new UnauthorizedException(
+                    "Authentication required"
             );
         }
 
@@ -25,7 +27,7 @@ public class TenantSecurityService {
 
         if (!(principal instanceof AuthenticatedUser user)) {
 
-            throw new IllegalStateException(
+            throw new UnauthorizedException(
                     "Invalid authenticated user"
             );
         }

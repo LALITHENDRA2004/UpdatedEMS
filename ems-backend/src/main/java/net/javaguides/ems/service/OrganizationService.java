@@ -21,7 +21,11 @@ public class OrganizationService {
     }
 
     public Organization getOrganizationById(Long id) {
-        return organizationRepository.findById(id).orElseThrow(() -> new RuntimeException("Organization not found"));
+        return organizationRepository.findById(id)
+                    .orElseThrow(() -> 
+                            new ResourceNotFoundException(
+                                    "Organization not found"
+                                ));
     }
 
     public List<Organization> getAllOrganizations() {
@@ -29,7 +33,12 @@ public class OrganizationService {
     }
     
     public Organization updateOrganization(Long id, Organization organization) {
-        Organization existingOrganization = organizationRepository.findById(id).orElseThrow(() -> new RuntimeException("Organization not found"));
+        Organization existingOrganization = 
+            organizationRepository.findById(id)
+                            .orElseThrow(() -> 
+                                    new ResourceNotFoundException(
+                                        "Organization not found"
+                                    ));
         existingOrganization.setName(organization.getName());
         existingOrganization.setEmail(organization.getEmail()); 
         return organizationRepository.save(existingOrganization);
