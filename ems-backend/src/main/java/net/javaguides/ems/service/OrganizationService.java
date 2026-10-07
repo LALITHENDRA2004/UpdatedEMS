@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import net.javaguides.ems.entity.Organization;
+import net.javaguides.ems.exception.ResourceNotFoundException;
 import net.javaguides.ems.repository.OrganizationRepository;
 
 @Service 
@@ -38,7 +39,7 @@ public class OrganizationService {
         Organization organization =
             organizationRepository.findById(id)
                     .orElseThrow(() ->
-                            new IllegalArgumentException(
+                            new ResourceNotFoundException(
                                     "Organization not found"
                             ));
 

@@ -8,6 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 import net.javaguides.ems.dto.UserResponse;
 import net.javaguides.ems.entity.Role;
 import net.javaguides.ems.entity.User;
+import net.javaguides.ems.exception.ForbiddenException;
+import net.javaguides.ems.exception.ResourceNotFoundException;
 import net.javaguides.ems.repository.UserRepository;
 import net.javaguides.ems.security.TenantSecurityService;
 
@@ -58,12 +60,12 @@ public class UserService {
                                 organizationId
                         )
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
+                                new ResourceNotFoundException(
                                         "User not found"
                                 ));
 
         if (targetUser.getRole() == Role.OWNER) {
-            throw new IllegalArgumentException(
+            throw new ForbiddenException(
                     "OWNER role cannot be changed"
             );
         }
@@ -71,13 +73,13 @@ public class UserService {
         if (targetUser.getId()
                 .equals(currentUser.getId())) {
 
-            throw new IllegalArgumentException(
+            throw new ForbiddenException(
                     "You cannot change your own role"
             );
         }
 
         if (newRole == Role.OWNER) {
-            throw new IllegalArgumentException(
+            throw new ForbiddenException(
                     "OWNER role cannot be assigned"
             );
         }
@@ -85,7 +87,7 @@ public class UserService {
         if (currentUser.getRole() == Role.ADMIN &&
                 newRole == Role.ADMIN) {
 
-            throw new IllegalArgumentException(
+            throw new ForbiddenException(
                     "ADMIN cannot assign ADMIN role"
             );
         }
@@ -112,7 +114,7 @@ public class UserService {
                         organizationId
                 )
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
+                        new ResourceNotFoundException(
                                 "Current user not found"
                         ));
     }

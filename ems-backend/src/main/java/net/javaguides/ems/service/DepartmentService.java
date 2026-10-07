@@ -9,6 +9,8 @@ import net.javaguides.ems.dto.DepartmentRequest;
 import net.javaguides.ems.dto.DepartmentResponse;
 import net.javaguides.ems.entity.Department;
 import net.javaguides.ems.entity.Organization;
+import net.javaguides.ems.exception.DuplicateResourceException;
+import net.javaguides.ems.exception.ResourceNotFoundException;
 import net.javaguides.ems.repository.DepartmentRepository;
 import net.javaguides.ems.repository.OrganizationRepository;
 import net.javaguides.ems.security.TenantSecurityService;
@@ -46,8 +48,8 @@ public class DepartmentService {
                         departmentName,
                         organizationId)) {
 
-            throw new IllegalArgumentException(
-                    "Department already exists in this organization"
+            throw new DuplicateResourceException(
+                    "Department already exists"
             );
         }
 
@@ -55,7 +57,7 @@ public class DepartmentService {
                 organizationRepository
                         .findById(organizationId)
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
+                                new ResourceNotFoundException(
                                         "Organization not found"
                                 ));
 
@@ -100,7 +102,7 @@ public class DepartmentService {
                                 organizationId
                         )
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
+                                new ResourceNotFoundException(
                                         "Department not found"
                                 ));
 
@@ -119,8 +121,8 @@ public class DepartmentService {
                                 departmentId
                         )) {
 
-            throw new IllegalArgumentException(
-                    "Department already exists in this organization"
+            throw new DuplicateResourceException(
+                    "Department already exists"
             );
         }
 
@@ -146,7 +148,7 @@ public class DepartmentService {
                                 organizationId
                         )
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
+                                new ResourceNotFoundException(
                                         "Department not found"
                                 ));
 

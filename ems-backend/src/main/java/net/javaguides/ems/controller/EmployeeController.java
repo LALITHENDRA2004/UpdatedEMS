@@ -16,8 +16,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
-import net.javaguides.ems.dto.EmployeeRequest;
+import net.javaguides.ems.dto.CreateEmployeeRequest;
 import net.javaguides.ems.dto.EmployeeResponse;
+import net.javaguides.ems.dto.UpdateEmployeeRequest;
 import net.javaguides.ems.service.EmployeeService;
 
 @RestController
@@ -38,7 +39,7 @@ public class EmployeeController {
             "hasAnyRole('OWNER', 'ADMIN', 'HR')"
     )
     public ResponseEntity<EmployeeResponse> createEmployee(
-            @Valid @RequestBody EmployeeRequest request) {
+            @Valid @RequestBody CreateEmployeeRequest request) {
 
         EmployeeResponse response =
                 employeeService.createEmployee(request);
@@ -82,7 +83,7 @@ public class EmployeeController {
     )
     public ResponseEntity<EmployeeResponse> updateEmployee(
             @PathVariable Long id,
-            @Valid @RequestBody EmployeeRequest request) {
+            @Valid @RequestBody UpdateEmployeeRequest request) {
 
         return ResponseEntity.ok(
                 employeeService.updateEmployee(id, request)

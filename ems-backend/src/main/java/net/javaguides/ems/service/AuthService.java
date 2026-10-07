@@ -11,6 +11,8 @@ import net.javaguides.ems.dto.RegisterResponse;
 import net.javaguides.ems.entity.Organization;
 import net.javaguides.ems.entity.Role;
 import net.javaguides.ems.entity.User;
+import net.javaguides.ems.exception.DuplicateResourceException;
+import net.javaguides.ems.exception.UnauthorizedException;
 import net.javaguides.ems.repository.OrganizationRepository;
 import net.javaguides.ems.repository.UserRepository;
 import net.javaguides.ems.security.JwtService;
@@ -39,19 +41,19 @@ public class AuthService {
     public RegisterResponse register(RegisterRequest request) {
 
         if (organizationRepository.existsByEmail(request.getOrganizationEmail())) {
-            throw new IllegalArgumentException(
+            throw new DuplicateResourceException(
                     "Organization email already exists"
             );
         }
 
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new IllegalArgumentException(
+            throw new DuplicateResourceException(
                     "Username already exists"
             );
         }
 
         if (userRepository.existsByEmail(request.getOwnerEmail())) {
-            throw new IllegalArgumentException(
+            throw new DuplicateResourceException(
                     "User email already exists"
             );
         }
@@ -93,7 +95,7 @@ public class AuthService {
         User user = userRepository
                 .findByEmail(request.getEmail())
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
+                        new UnauthorizedException(
                                 "Invalid email or password"
                         )
                 );
@@ -105,7 +107,7 @@ public class AuthService {
                 );
 
         if (!passwordMatches) {
-            throw new IllegalArgumentException(
+            throw new UnauthorizedException(
                     "Invalid email or password"
             );
         }

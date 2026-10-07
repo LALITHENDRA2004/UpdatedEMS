@@ -19,6 +19,9 @@ import net.javaguides.ems.entity.InvitationStatus;
 import net.javaguides.ems.entity.Organization;
 import net.javaguides.ems.entity.Role;
 import net.javaguides.ems.entity.User;
+import net.javaguides.ems.exception.DuplicateResourceException;
+import net.javaguides.ems.exception.ForbiddenException;
+import net.javaguides.ems.exception.ResourceNotFoundException;
 import net.javaguides.ems.repository.InvitationRepository;
 import net.javaguides.ems.repository.OrganizationRepository;
 import net.javaguides.ems.repository.UserRepository;
@@ -65,7 +68,7 @@ public class InvitationService {
         validateRoleCanBeInvited(role);
 
         if (userRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException(
+            throw new DuplicateResourceException(
                     "A user with this email already exists"
             );
         }
@@ -76,7 +79,7 @@ public class InvitationService {
                         organizationId,
                         InvitationStatus.PENDING)) {
 
-            throw new IllegalArgumentException(
+            throw new DuplicateResourceException(
                     "A pending invitation already exists for this email"
             );
         }
@@ -84,7 +87,7 @@ public class InvitationService {
         Organization organization =
                 organizationRepository.findById(organizationId)
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
+                                new ResourceNotFoundException(
                                         "Organization not found"
                                 ));
 
@@ -155,7 +158,7 @@ public class InvitationService {
                 request.getUsername().trim();
 
         if (userRepository.existsByUsername(username)) {
-            throw new IllegalArgumentException(
+            throw new DuplicateResourceException(
                     "Username already exists"
             );
         }
@@ -163,7 +166,7 @@ public class InvitationService {
         if (userRepository.existsByEmail(
                 invitation.getEmail())) {
 
-            throw new IllegalArgumentException(
+            throw new DuplicateResourceException(
                     "A user with this email already exists"
             );
         }
@@ -196,7 +199,7 @@ public class InvitationService {
     private void validateRoleCanBeInvited(Role role) {
 
         if (role == Role.OWNER) {
-            throw new IllegalArgumentException(
+            throw new ForbiddenException(
                     "OWNER cannot be assigned through invitation"
             );
         }
@@ -212,7 +215,7 @@ public class InvitationService {
         if (currentUserRole == Role.ADMIN &&
                 role == Role.ADMIN) {
 
-            throw new IllegalArgumentException(
+            throw new ForbiddenException(
                     "ADMIN cannot invite another ADMIN"
             );
         }

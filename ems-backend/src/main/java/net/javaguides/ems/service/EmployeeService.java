@@ -5,11 +5,14 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import net.javaguides.ems.dto.EmployeeRequest;
+import net.javaguides.ems.dto.CreateEmployeeRequest;
 import net.javaguides.ems.dto.EmployeeResponse;
+import net.javaguides.ems.dto.UpdateEmployeeRequest;
 import net.javaguides.ems.entity.Employee;
 import net.javaguides.ems.entity.EmployeeStatus;
 import net.javaguides.ems.entity.Organization;
+import net.javaguides.ems.exception.DuplicateResourceException;
+import net.javaguides.ems.exception.ResourceNotFoundException;
 import net.javaguides.ems.repository.EmployeeRepository;
 import net.javaguides.ems.repository.OrganizationRepository;
 import net.javaguides.ems.security.AuthenticatedUser;
@@ -34,7 +37,7 @@ public class EmployeeService {
 
     @Transactional
     public EmployeeResponse createEmployee(
-            EmployeeRequest request) {
+            CreateEmployeeRequest request) {
 
         AuthenticatedUser currentUser =
                 tenantSecurityService.getCurrentUser();
@@ -46,15 +49,15 @@ public class EmployeeService {
                 request.getEmail(),
                 organizationId)) {
 
-            throw new IllegalArgumentException(
-                    "Employee email already exists in this organization"
+            throw new DuplicateResourceException(
+                    "Employee with this email already exists"
             );
         }
 
         Organization organization =
                 organizationRepository.findById(organizationId)
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
+                                new ResourceNotFoundException(
                                         "Organization not found"
                                 ));
 
@@ -108,7 +111,7 @@ public class EmployeeService {
                                 organizationId
                         )
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
+                                new ResourceNotFoundException(
                                         "Employee not found"
                                 ));
 
@@ -118,7 +121,7 @@ public class EmployeeService {
     @Transactional
     public EmployeeResponse updateEmployee(
             Long employeeId,
-            EmployeeRequest request) {
+            UpdateEmployeeRequest request) {
 
         Long organizationId =
                 tenantSecurityService
@@ -131,7 +134,7 @@ public class EmployeeService {
                                 organizationId
                         )
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
+                                new ResourceNotFoundException(
                                         "Employee not found"
                                 ));
 
@@ -147,8 +150,8 @@ public class EmployeeService {
                                 employeeId
                         )) {
 
-            throw new IllegalArgumentException(
-                    "Employee email already exists in this organization"
+            throw new DuplicateResourceException(
+                "Employee email already exists"
             );
         }
 
@@ -182,7 +185,7 @@ public class EmployeeService {
                                 organizationId
                         )
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
+                                new ResourceNotFoundException(
                                         "Employee not found"
                                 ));
 
